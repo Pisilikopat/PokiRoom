@@ -79,7 +79,7 @@ class PokiTheme {
           fontWeight: FontWeight.w700,
         ),
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: PokiColors.surface,
         elevation: 0,
         shadowColor: PokiColors.text.withOpacity(0.08),
