@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_gate.dart';
 import 'core/theme/poki_theme.dart';
 
-const _supabaseUrl = 'https://bqfbatewvgvoidkonshd.supabase.co';
+const _supabaseUrl = 'https://bqfbatewvgzoidkonshd.supabase.co';
 const _supabaseAnonKey =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxZmJhdGV3dmd6b2lka29uc2hkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4Mjc2MjIsImV4cCI6MjEwODQwMzYyMn0.DMgdBFt-RqbPLAHVUfKVKHwtVRdkVTCkmJBbsFZdV10';
 
@@ -13,14 +13,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(url: _supabaseUrl, anonKey: _supabaseAnonKey);
 
-  // Anonim giriş (hata alsa bile uygulamanın çökmesini engeller)
+  // Anonim oturum açma
   final auth = Supabase.instance.client.auth;
   if (auth.currentSession == null) {
-    try {
-      await auth.signInAnonymously();
-    } catch (e) {
-      debugPrint('Anonim giriş uyarısı: $e');
-    }
+    await auth.signInAnonymously();
   }
 
   runApp(const PokiRoomApp());
