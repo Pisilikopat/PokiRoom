@@ -40,7 +40,7 @@ class _TypingPawsState extends State<TypingPaws>
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(3, (i) {
                   final phase = (_controller.value - i * 0.15) * 2 * math.pi;
-                  final dy = -math.max(0, math.sin(phase)) * 8;
+                  final dy = -math.max(0, math.sin(phase)) * 8.0;
                   return Transform.translate(
                     offset: Offset(0, dy),
                     child: const Padding(
