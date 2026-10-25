@@ -122,7 +122,7 @@ class PokiTheme {
           borderSide: const BorderSide(color: PokiColors.primary, width: 2),
         ),
       ),
-      dialogTheme: DialogThemeData(
+      dialogTheme: DialogTheme(
         backgroundColor: PokiColors.background,
         shape: shape,
       ),
