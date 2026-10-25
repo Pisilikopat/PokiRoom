@@ -35,7 +35,7 @@ jobs:
           cache: true
 
       - name: Generate Platform Scaffolding
-        run: flutter create --platforms=web,android .
+        run: flutter create --project-name poki_room --platforms=web,android .
 
       - name: Get Dependencies
         run: flutter pub get
