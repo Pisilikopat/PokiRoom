@@ -79,13 +79,7 @@ class PokiTheme {
           fontWeight: FontWeight.w700,
         ),
       ),
-      cardTheme: CardTheme(
-        color: PokiColors.surface,
-        elevation: 0,
-        shadowColor: PokiColors.text.withOpacity(0.08),
-        shape: shape,
-        margin: EdgeInsets.zero,
-      ),
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: PokiColors.primaryButton,
@@ -122,10 +116,7 @@ class PokiTheme {
           borderSide: const BorderSide(color: PokiColors.primary, width: 2),
         ),
       ),
-      dialogTheme: DialogTheme(
-        backgroundColor: PokiColors.background,
-        shape: shape,
-      ),
+
       snackBarTheme: SnackBarThemeData(
         backgroundColor: PokiColors.text,
         contentTextStyle: GoogleFonts.quicksand(color: PokiColors.background),
