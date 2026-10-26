@@ -9,6 +9,8 @@ import '../../core/theme/poki_theme.dart';
 import '../../data/models/poki_user.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../shared/widgets/poki_card.dart';
+import '../memories/memories_screen.dart';
+import '../workshop/doodle_studio_screen.dart';
 import 'widgets/avatar_picker.dart';
 
 /// Ana ekran: Profil başlığı + özellik kartları.
@@ -66,6 +68,40 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const AppGate()),
     );
+  }
+
+  void _openWorkshop() {
+    if (_me == null || !_me!.hasRoom) {
+      _showNeedRoomSnackBar();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DoodleStudioScreen(roomId: _me!.currentRoomId!),
+      ),
+    );
+  }
+
+  void _openMemories() {
+    if (_me == null || !_me!.hasRoom) {
+      _showNeedRoomSnackBar();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MemoriesScreen(roomId: _me!.currentRoomId!),
+      ),
+    );
+  }
+
+  void _showNeedRoomSnackBar() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Atölye ve Anılar için önce biriyle odaya bağlanmalısın 🐾'),
+        ),
+      );
   }
 
   @override
@@ -131,9 +167,9 @@ class _HomeScreenState extends State<HomeScreen> {
               _FeatureCard(
                 emoji: '🎨',
                 title: 'Atölye',
-                subtitle: 'Yakında: doodle, çıkartma ve daha fazlası',
+                subtitle: 'Doodle çiz, çıkartma yap veya canlı çiz',
                 color: PokiColors.incomingBubble.withOpacity(0.5),
-                onTap: () => _comingSoon(context),
+                onTap: _openWorkshop,
               ),
 
               const SizedBox(height: 16),
@@ -141,9 +177,9 @@ class _HomeScreenState extends State<HomeScreen> {
               _FeatureCard(
                 emoji: '📸',
                 title: 'Anılar',
-                subtitle: 'Yakında: paylaşılan fotoğraflar ve anılar',
+                subtitle: 'Ortak mantar pano ve hatıralar',
                 color: PokiColors.lampOn.withOpacity(0.35),
-                onTap: () => _comingSoon(context),
+                onTap: _openMemories,
               ),
             ],
           ),

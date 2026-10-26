@@ -10,10 +10,15 @@ import '../../core/theme/poki_theme.dart';
 import '../../data/models/poki_message.dart';
 import '../../data/models/poki_room.dart';
 import '../../data/models/poki_user.dart';
+import '../../data/repositories/memory_repository.dart';
 import '../../data/repositories/message_repository.dart';
 import '../../data/repositories/room_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/services/room_presence.dart';
+import '../memories/memories_screen.dart';
+import '../workshop/doodle_studio_screen.dart';
+import '../workshop/live_doodle_screen.dart';
+import '../workshop/widgets/sticker_picker_sheet.dart';
 import 'widgets/foggy_compose_sheet.dart';
 import 'widgets/hearts_burst.dart';
 import 'widgets/message_bubble.dart';
@@ -41,6 +46,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   final _users = UserRepository();
   final _rooms = RoomRepository();
   final _messages = MessageRepository();
+  final _memories = MemoryRepository();
 
   String get _myId => Supabase.instance.client.auth.currentUser!.id;
 
@@ -55,10 +61,11 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   bool _loading = true;
   String? _error;
 
-  // Poki-Poke durumu
+  // Poki-Poke / bildirim durumu
   int? _burstId;
   int _burstCounter = 0;
   String? _toast;
+  VoidCallback? _toastOnTap;
   Timer? _toastTimer;
   DateTime? _lastPokeSent;
 
@@ -111,6 +118,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       });
 
       _listen(presence.pokes, _onPoke);
+      _listen(presence.doodleInvites, _onDoodleInvite);
       _listen(_users.watchMe(), (u) => _setState(() => _me = u));
       _listen(_users.watchUser(partnerId), (u) => _setState(() => _partner = u));
       _listen(_rooms.watchRoom(widget.roomId), (r) => _setState(() => _room = r));
@@ -158,27 +166,65 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     }
   }
 
-  // ------------------------------------------------------------ Poki-Poke
+  // ------------------------------------------------------------ bildirimler
 
-  void _onPoke(PokeEvent event) {
-    HapticFeedback.mediumImpact();
+  void _showToast(
+    String text, {
+    VoidCallback? onTap,
+    Duration duration = const Duration(seconds: 4),
+  }) {
     _toastTimer?.cancel();
     setState(() {
-      _burstId = ++_burstCounter;
-      _toast = 'Pıt! 🐾 ${event.nickname} şu an seni düşünüyor';
+      _toast = text;
+      _toastOnTap = onTap;
     });
-    _toastTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted) setState(() => _toast = null);
+    _toastTimer = Timer(duration, _hideToast);
+  }
+
+  void _hideToast() {
+    if (!mounted) return;
+    setState(() {
+      _toast = null;
+      _toastOnTap = null;
     });
   }
 
+  void _onPoke(PokeEvent event) {
+    HapticFeedback.mediumImpact();
+    setState(() => _burstId = ++_burstCounter);
+    _showToast('Pıt! 🐾 ${event.nickname} şu an seni düşünüyor');
+  }
+
+  void _onDoodleInvite(PokeEvent event) {
+    HapticFeedback.mediumImpact();
+    _showToast(
+      '🎨 ${event.nickname} birlikte çizmeye çağırıyor · Katıl',
+      duration: const Duration(seconds: 12),
+      onTap: () {
+        _hideToast();
+        _openLive(invite: false);
+      },
+    );
+  }
+
+  // ------------------------------------------------------------ Poki-Poke
+
   Future<void> _openMenu() async {
     final action = await PokiPokeMenu.show(context);
+    if (!mounted) return;
     switch (action) {
       case PokiPokeAction.thinkingOfYou:
         await _sendPoke();
       case PokiPokeAction.foggyMessage:
         await _composeFoggy();
+      case PokiPokeAction.sticker:
+        await _openStickerPicker();
+      case PokiPokeAction.liveDoodle:
+        _openLive();
+      case PokiPokeAction.workshop:
+        _openWorkshop();
+      case PokiPokeAction.memories:
+        _openMemories();
       case null:
         break;
     }
@@ -210,6 +256,91 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     if (text == null) return;
     try {
       await _messages.sendFoggy(widget.roomId, text);
+    } on PokiException catch (e) {
+      _snack(e.message);
+    }
+  }
+
+  // ----------------------------------------------- Atölye / Anılar / Canlı
+
+  Future<void> _openStickerPicker() {
+    return StickerPickerSheet.show(
+      context,
+      roomId: widget.roomId,
+      onOpenWorkshop: _openWorkshop,
+      onPick: (sticker) async {
+        try {
+          await _messages.sendSticker(widget.roomId, sticker.id);
+        } on PokiException catch (e) {
+          _snack(e.message);
+        }
+      },
+    );
+  }
+
+  Future<void> _inviteToDoodle() async {
+    try {
+      await _presence?.sendDoodleInvite(_me?.nickname ?? 'Biri');
+    } catch (_) {}
+  }
+
+  void _openWorkshop() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DoodleStudioScreen(
+          roomId: widget.roomId,
+          onInvitePartner: _inviteToDoodle,
+        ),
+      ),
+    );
+  }
+
+  void _openLive({bool invite = true}) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LiveDoodleScreen(
+          roomId: widget.roomId,
+          onInvitePartner: invite ? _inviteToDoodle : null,
+        ),
+      ),
+    );
+  }
+
+  void _openMemories() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MemoriesScreen(roomId: widget.roomId),
+      ),
+    );
+  }
+
+  Future<void> _onMessageLongPress(PokiMessage m, bool mine) async {
+    final pinnable = m.type == 'text' || m.type == 'sticker' || m.type == 'foggy';
+    // Henüz açılmamış buğulu mesaj iğnelenemez.
+    final hidden = m.type == 'foggy' && !mine && !m.isRead;
+    if (!pinnable || hidden) return;
+
+    final pin = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: PokiColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(PokiRadius.card)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+          child: ListTile(
+            leading: const Icon(Icons.push_pin_rounded),
+            title: const Text('Anılara iğnele'),
+            onTap: () => Navigator.of(ctx).pop(true),
+          ),
+        ),
+      ),
+    );
+    if (pin != true) return;
+    try {
+      await _memories.addFromMessage(m);
+      _snack('Anılara iğnelendi 📌');
     } on PokiException catch (e) {
       _snack(e.message);
     }
@@ -323,7 +454,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                     : Padding(
                         key: ValueKey(_toast),
                         padding: const EdgeInsets.only(top: 8),
-                        child: PokeToast(text: _toast!),
+                        child: PokeToast(text: _toast!, onTap: _toastOnTap),
                       ),
               ),
             ),
@@ -348,12 +479,14 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       itemCount: _list.length,
       itemBuilder: (context, index) {
         final m = _list[index];
+        final mine = m.senderId == _myId;
         return MessageBubble(
           key: ValueKey(m.id),
           message: m,
-          isMine: m.senderId == _myId,
+          isMine: mine,
           onFoggyRevealed: () =>
               _messages.markMessageRead(m.id).catchError((_) {}),
+          onLongPress: () => _onMessageLongPress(m, mine),
         );
       },
     );

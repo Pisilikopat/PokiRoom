@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Karşı taraftan gelen "Seni Düşünüyorum" sinyali.
+/// Karşı taraftan gelen sinyal (Poki-Poke veya doodle daveti).
 class PokeEvent {
   const PokeEvent({required this.nickname});
   final String nickname;
@@ -12,7 +12,7 @@ class PokeEvent {
 
 /// Supabase Realtime ile:
 ///  - Presence: online / yazıyor durumu
-///  - Broadcast: Poki-Poke sinyali (veritabanına yazılmaz)
+///  - Broadcast: Poki-Poke ve "birlikte çiz" daveti (veritabanına yazılmaz)
 class RoomPresence extends ChangeNotifier {
   RoomPresence({
     required this.roomId,
@@ -22,6 +22,7 @@ class RoomPresence extends ChangeNotifier {
   }) : _db = client ?? Supabase.instance.client;
 
   static const String _pokeEvent = 'poki_poke';
+  static const String _inviteEvent = 'doodle_invite';
 
   final String roomId;
   final String myId;
@@ -30,6 +31,7 @@ class RoomPresence extends ChangeNotifier {
 
   RealtimeChannel? _channel;
   final StreamController<PokeEvent> _pokes = StreamController.broadcast();
+  final StreamController<PokeEvent> _invites = StreamController.broadcast();
   bool _typing = false;
   bool _disposed = false;
 
@@ -37,6 +39,7 @@ class RoomPresence extends ChangeNotifier {
   bool partnerTyping = false;
 
   Stream<PokeEvent> get pokes => _pokes.stream;
+  Stream<PokeEvent> get doodleInvites => _invites.stream;
 
   void join() {
     final channel = _db.channel(
@@ -45,7 +48,8 @@ class RoomPresence extends ChangeNotifier {
     );
     channel
         .onPresenceSync((_) => _sync())
-        .onBroadcast(event: _pokeEvent, callback: _onPokePayload)
+        .onBroadcast(event: _pokeEvent, callback: (p) => _emit(_pokes, p))
+        .onBroadcast(event: _inviteEvent, callback: (p) => _emit(_invites, p))
         .subscribe((status, error) async {
       if (status == RealtimeSubscribeStatus.subscribed) {
         await _track();
@@ -54,24 +58,30 @@ class RoomPresence extends ChangeNotifier {
     _channel = channel;
   }
 
-  void _onPokePayload(Map<String, dynamic> payload) {
+  void _emit(StreamController<PokeEvent> target, Map<String, dynamic> payload) {
     // Sürüme göre payload iç içe ('payload' anahtarı) gelebilir.
     final nested = payload['payload'];
     final data = nested is Map ? nested.cast<String, dynamic>() : payload;
     if (data['from'] == myId) return;
     final name = (data['nickname'] as String?)?.trim();
-    if (!_disposed && !_pokes.isClosed) {
-      _pokes.add(PokeEvent(nickname: (name == null || name.isEmpty) ? 'Biri' : name));
+    if (!_disposed && !target.isClosed) {
+      target.add(PokeEvent(nickname: (name == null || name.isEmpty) ? 'Biri' : name));
     }
   }
 
-  /// "Seni Düşünüyorum" gönder.
-  Future<void> sendPoke(String myNickname) async {
+  Future<void> _broadcast(String event, String myNickname) async {
     await _channel?.sendBroadcastMessage(
-      event: _pokeEvent,
+      event: event,
       payload: {'from': myId, 'nickname': myNickname},
     );
   }
+
+  /// "Seni Düşünüyorum" gönder.
+  Future<void> sendPoke(String myNickname) => _broadcast(_pokeEvent, myNickname);
+
+  /// "Birlikte çizelim" daveti gönder.
+  Future<void> sendDoodleInvite(String myNickname) =>
+      _broadcast(_inviteEvent, myNickname);
 
   void _sync() {
     var online = false;
@@ -112,6 +122,7 @@ class RoomPresence extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _pokes.close();
+    _invites.close();
     final channel = _channel;
     if (channel != null) {
       channel.untrack();

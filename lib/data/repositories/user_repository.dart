@@ -1,6 +1,4 @@
 // lib/data/repositories/user_repository.dart
-import 'dart:typed_data';
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/errors/poki_exception.dart';
@@ -20,7 +18,7 @@ class UserRepository {
     return PokiUser.fromMap(row);
   }
 
-  /// Oda partnerini canlı izler (mood, nickname...).
+  /// Oda partnerini canlı izler (mood, nickname...). RLS gereği sadece aktif oda partneri okunabilir.
   Stream<PokiUser> watchUser(String id) => _db
       .from('users')
       .stream(primaryKey: ['id'])
@@ -69,14 +67,13 @@ class UserRepository {
   // ─── Profil Fotoğrafı ───
 
   /// Profil fotoğrafını Supabase Storage'a yükler.
-  Future<void> uploadAvatar(Uint8List bytes) async {
+  Future<void> uploadAvatar(dynamic bytes) async {
     final path = 'avatars/$_uid.jpg';
     await _db.storage.from('avatars').uploadBinary(
           path,
           bytes,
           fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
         );
-    // avatar_url alanını güncelle
     final publicUrl = _db.storage.from('avatars').getPublicUrl(path);
     await _db.from('users').update({'avatar_url': publicUrl}).eq('id', _uid);
   }

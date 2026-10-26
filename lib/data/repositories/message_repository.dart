@@ -28,6 +28,10 @@ class MessageRepository {
   Future<void> sendFoggy(String roomId, String text) =>
       _send(roomId, 'foggy', text);
 
+  /// Çıkartma mesajı: content = room_stickers.id
+  Future<void> sendSticker(String roomId, String stickerId) =>
+      _send(roomId, 'sticker', stickerId);
+
   Future<void> _send(String roomId, String type, String text) async {
     final content = text.trim();
     if (content.isEmpty) return;
