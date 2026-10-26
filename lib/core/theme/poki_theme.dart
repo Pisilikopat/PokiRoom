@@ -79,10 +79,6 @@ class PokiTheme {
           fontWeight: FontWeight.w700,
         ),
       ),
-      
-        shape: shape,
-        margin: EdgeInsets.zero,
-      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: PokiColors.primaryButton,
@@ -119,7 +115,6 @@ class PokiTheme {
           borderSide: const BorderSide(color: PokiColors.primary, width: 2),
         ),
       ),
-      
       snackBarTheme: SnackBarThemeData(
         backgroundColor: PokiColors.text,
         contentTextStyle: GoogleFonts.quicksand(color: PokiColors.background),
