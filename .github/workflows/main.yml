@@ -35,7 +35,9 @@ jobs:
           cache: true
 
       - name: Generate Platform Scaffolding
-        run: flutter create --project-name poki_room --platforms=web,android .
+        run: |
+          flutter create --project-name poki_room --platforms=web,android .
+          echo "subprojects { project.evaluationDependsOn(':app') }" >> android/build.gradle
 
       - name: Get Dependencies
         run: flutter pub get
@@ -53,12 +55,10 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Build Android APK
-        continue-on-error: true
-        run: flutter build apk --split-per-abi
+        run: flutter build apk --release
 
       - name: Upload APK Artifacts
         if: always()
-        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: poki-room-apk
