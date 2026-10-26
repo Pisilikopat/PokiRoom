@@ -1,4 +1,6 @@
 // lib/data/repositories/user_repository.dart
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/errors/poki_exception.dart';
@@ -18,7 +20,7 @@ class UserRepository {
     return PokiUser.fromMap(row);
   }
 
-  /// Oda partnerini canlı izler (mood, nickname...). RLS gereği sadece aktif oda partneri okunabilir.
+  /// Oda partnerini canlı izler (mood, nickname...).
   Stream<PokiUser> watchUser(String id) => _db
       .from('users')
       .stream(primaryKey: ['id'])
@@ -61,6 +63,33 @@ class UserRepository {
         throw const PokiException('PokiCode biçimi geçersiz.');
       }
       throw const PokiException('PokiCode değiştirilemedi, tekrar dener misin?');
+    }
+  }
+
+  // ─── Profil Fotoğrafı ───
+
+  /// Profil fotoğrafını Supabase Storage'a yükler.
+  Future<void> uploadAvatar(Uint8List bytes) async {
+    final path = 'avatars/$_uid.jpg';
+    await _db.storage.from('avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+        );
+    // avatar_url alanını güncelle
+    final publicUrl = _db.storage.from('avatars').getPublicUrl(path);
+    await _db.from('users').update({'avatar_url': publicUrl}).eq('id', _uid);
+  }
+
+  /// Profil fotoğrafı URL'ini döndürür.
+  String? getAvatarUrl(String userId, {bool bust = false}) {
+    final path = 'avatars/$userId.jpg';
+    try {
+      var url = _db.storage.from('avatars').getPublicUrl(path);
+      if (bust) url = '$url?t=${DateTime.now().millisecondsSinceEpoch}';
+      return url;
+    } catch (_) {
+      return null;
     }
   }
 }

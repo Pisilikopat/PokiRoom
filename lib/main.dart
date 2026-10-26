@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'app_gate.dart';
 import 'core/theme/poki_theme.dart';
+import 'features/auth/auth_gate.dart';
 
 const _supabaseUrl = 'https://bqfbatewvgzoidkonshd.supabase.co';
 const _supabaseAnonKey =
@@ -12,13 +12,6 @@ const _supabaseAnonKey =
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(url: _supabaseUrl, anonKey: _supabaseAnonKey);
-
-  // Anonim oturum açma
-  final auth = Supabase.instance.client.auth;
-  if (auth.currentSession == null) {
-    await auth.signInAnonymously();
-  }
-
   runApp(const PokiRoomApp());
 }
 
@@ -31,7 +24,7 @@ class PokiRoomApp extends StatelessWidget {
       title: 'PokiRoom',
       debugShowCheckedModeBanner: false,
       theme: PokiTheme.light,
-      home: const AppGate(),
+      home: const AuthGate(),
     );
   }
 }
