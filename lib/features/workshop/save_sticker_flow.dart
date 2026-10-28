@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/errors/poki_exception.dart';
 import '../../core/theme/poki_theme.dart';
+import '../../data/models/poki_notification.dart';
 import '../../data/repositories/memory_repository.dart';
 import '../../data/repositories/message_repository.dart';
+import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/sticker_repository.dart';
 import 'doodle_controller.dart';
 import 'sticker_exporter.dart';
@@ -35,6 +37,10 @@ Future<bool> runSaveStickerFlow(
       bytes: exported.bytes,
       width: exported.width,
       height: exported.height,
+    );
+    NotificationRepository.instance.notifyPartner(
+      roomId: roomId,
+      type: NotificationType.stickerCreated,
     );
     if (!context.mounted) return true;
 

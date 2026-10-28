@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'core/theme/poki_theme.dart';
 import 'data/models/poki_user.dart';
 import 'data/repositories/user_repository.dart';
+import 'data/services/notification_center.dart';
 import 'features/empty_pocket/empty_pocket_screen.dart';
 import 'features/room/poki_room_screen.dart';
 
@@ -17,6 +18,18 @@ class AppGate extends StatefulWidget {
 
 class _AppGateState extends State<AppGate> {
   late final Stream<PokiUser> _meStream = UserRepository().watchMe();
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationCenter.instance.start();
+  }
+
+  @override
+  void dispose() {
+    NotificationCenter.instance.stop();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

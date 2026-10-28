@@ -9,6 +9,7 @@ import '../../data/models/knock_request.dart';
 import '../../data/models/poki_user.dart';
 import '../../data/repositories/request_repository.dart';
 import '../../data/repositories/user_repository.dart';
+import '../notifications/widgets/activity_bell_button.dart';
 import 'widgets/edit_poki_code_sheet.dart';
 import 'widgets/knock_dialog.dart';
 import 'widgets/knock_form_card.dart';
@@ -135,6 +136,10 @@ class _EmptyPocketScreenState extends State<EmptyPocketScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const Align(
+                      alignment: Alignment.centerRight,
+                      child: ActivityBellButton(),
+                    ),
                     const PocketHeader(),
                     const SizedBox(height: 20),
                     Text('Cebin şu an boş', style: textTheme.headlineSmall),

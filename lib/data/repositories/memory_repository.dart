@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/errors/poki_exception.dart';
 import '../models/poki_memory.dart';
 import '../models/poki_message.dart';
+import '../models/poki_notification.dart';
+import 'notification_repository.dart';
 
 class MemoryRepository {
   MemoryRepository([SupabaseClient? client])
@@ -68,6 +70,10 @@ class MemoryRepository {
         if (text != null) 'content': text,
         if (stickerId != null) 'sticker_id': stickerId,
       });
+      NotificationRepository.instance.notifyPartner(
+        roomId: roomId,
+        type: NotificationType.memoryPinned,
+      );
     } on PostgrestException {
       throw const PokiException('Anı iğnelenemedi, tekrar dener misin? 📌');
     }

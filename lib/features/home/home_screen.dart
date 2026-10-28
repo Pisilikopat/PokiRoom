@@ -9,8 +9,10 @@ import '../../core/services/notification_service.dart';
 import '../../core/theme/poki_theme.dart';
 import '../../data/models/poki_user.dart';
 import '../../data/repositories/user_repository.dart';
+import '../../data/services/notification_center.dart';
 import '../../shared/widgets/poki_card.dart';
 import '../memories/memories_screen.dart';
+import '../notifications/widgets/activity_bell_button.dart';
 import '../workshop/doodle_studio_screen.dart';
 import 'widgets/avatar_picker.dart';
 
@@ -30,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    NotificationCenter.instance.start();
     _load();
   }
 
@@ -145,6 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
+                  const ActivityBellButton(),
                   IconButton(
                     tooltip: 'Çıkış Yap',
                     icon: const Icon(Icons.logout_rounded),

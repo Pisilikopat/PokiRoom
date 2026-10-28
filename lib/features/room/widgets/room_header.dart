@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/poki_theme.dart';
 import '../../../data/models/poki_user.dart';
+import '../../notifications/widgets/activity_bell_button.dart';
 
 /// Üst "Cep Odası": iki kedi + masa lambası, PokiPet sayacı, durum rozetleri.
 class RoomHeader extends StatelessWidget {
@@ -55,7 +56,14 @@ class RoomHeader extends StatelessWidget {
                     icon: const Icon(Icons.logout_rounded),
                     onPressed: onClosePocket,
                   ),
-                  _PokiPetChip(emoji: _petEmoji, streak: streak),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const ActivityBellButton(),
+                      const SizedBox(width: 4),
+                      _PokiPetChip(emoji: _petEmoji, streak: streak),
+                    ],
+                  ),
                 ],
               ),
               Row(

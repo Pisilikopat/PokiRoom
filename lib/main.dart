@@ -2,9 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/navigation/app_navigator.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/poki_theme.dart';
 import 'features/auth/auth_gate.dart';
+import 'features/notifications/notification_router.dart';
+import 'shared/widgets/poki_notification_overlay.dart';
 
 const _supabaseUrl = 'https://bqfbatewvgzoidkonshd.supabase.co';
 const _supabaseAnonKey =
@@ -26,6 +29,11 @@ class PokiRoomApp extends StatelessWidget {
       title: 'PokiRoom',
       debugShowCheckedModeBanner: false,
       theme: PokiTheme.light,
+      navigatorKey: appNavigatorKey,
+      builder: (context, child) => PokiNotificationOverlay(
+        onTap: NotificationRouter.open,
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: const AuthGate(),
     );
   }
