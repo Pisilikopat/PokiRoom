@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../app_gate.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/theme/poki_theme.dart';
 import '../../data/models/poki_user.dart';
 import '../../data/repositories/user_repository.dart';
@@ -37,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final me = await _users.fetchMe();
       final url = _users.getAvatarUrl(me.id);
       if (mounted) setState(() { _me = me; _avatarUrl = url; });
+      NotificationService.instance.syncTokenWithSupabase();
     } catch (_) {
       // Profil yüklenemezse sessizce devam et
     }

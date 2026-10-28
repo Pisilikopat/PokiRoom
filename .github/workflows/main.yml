@@ -33,8 +33,17 @@ jobs:
           channel: 'stable'
           cache: false
 
-      - name: Generate Platform Scaffolding
-        run: flutter create --project-name poki_room --platforms=web,android .
+      - name: Generate Platform Scaffolding and Configure Firebase
+        run: |
+          flutter create --project-name poki_room --platforms=web,android .
+          # Copy google-services.json to android/app
+          cp google-services.json android/app/google-services.json
+          
+          # Add google-services plugin to android/settings.gradle
+          sed -i '/plugins {/a \    id "com.google.gms.google-services" version "4.4.2" apply false' android/settings.gradle
+          
+          # Add google-services plugin to android/app/build.gradle
+          sed -i '/plugins {/a \    id "com.google.gms.google-services"' android/app/build.gradle
 
       - name: Get Dependencies
         run: flutter pub get

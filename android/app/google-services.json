@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "825698001191",
+    "project_id": "pokiroom",
+    "storage_bucket": "pokiroom.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:825698001191:android:a933fa8fc4c9649a8dc902",
+        "android_client_info": {
+          "package_name": "com.example.poki_room"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7HfbKAv4Qe_YjPd7AGfwmYF3YvmVvK-E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
