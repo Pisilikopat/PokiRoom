@@ -21,32 +21,19 @@ class NotificationService {
     if (_initialized) return;
 
     try {
-      if (kIsWeb) {
-        // Web için opsiyonel ayarlar
-        await Firebase.initializeApp(
-          options: const FirebaseOptions(
-            apiKey: 'AIzaSyC7HfbKAv4Qe_YjPd7AGfwmYF3YvmVvK-E',
-            appId: '1:825698001191:android:a933fa8fc4c9649a8dc902',
-            messagingSenderId: '825698001191',
-            projectId: 'pokiroom',
-            storageBucket: 'pokiroom.firebasestorage.app',
-          ),
-        );
-      } else {
+      if (!kIsWeb) {
         // Android / iOS için google-services.json'dan otomatik okur
         await Firebase.initializeApp();
-      }
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+        final messaging = FirebaseMessaging.instance;
 
-      final messaging = FirebaseMessaging.instance;
-
-      // Bildirim izni iste
-      final settings = await messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+        // Bildirim izni iste
+        final settings = await messaging.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
 
       debugPrint('Bildirim izin durumu: ${settings.authorizationStatus}');
 
