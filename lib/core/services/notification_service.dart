@@ -47,10 +47,11 @@ class NotificationService {
         syncTokenWithSupabase(customToken: newToken);
       });
 
-      // Uygulama açıkken gelen bildirimleri dinle
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        debugPrint('Ön planda bildirim geldi: ${message.notification?.title}');
-      });
+        // Uygulama açıkken gelen bildirimleri dinle
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+          debugPrint('Ön planda bildirim geldi: ${message.notification?.title}');
+        });
+      }
     } catch (e) {
       debugPrint('Firebase/FCM başlatma uyarısı (normal): $e');
     }
