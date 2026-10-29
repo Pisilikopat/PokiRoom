@@ -79,8 +79,11 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Logo / Başlık
-                const Text('🐾', style: TextStyle(fontSize: 56)),
-                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: Image.asset('assets/icons/app_icon.png', width: 88, height: 88),
+                ),
+                const SizedBox(height: 12),
                 Text(
                   'PokiRoom',
                   style: textTheme.headlineMedium?.copyWith(

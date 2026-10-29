@@ -84,7 +84,23 @@ def configure():
         else:
             print(f"google-services already present in {app_groovy}")
 
-    print("--- Firebase Configuration Done ---")
+    # 4. Configure App Icons for Android and Web
+    src_res = os.path.join("assets", "android_res")
+    dst_res = os.path.join("android", "app", "src", "main", "res")
+    if os.path.exists(src_res) and os.path.exists(dst_res):
+        for folder in os.listdir(src_res):
+            src_folder = os.path.join(src_res, folder)
+            dst_folder = os.path.join(dst_res, folder)
+            if os.path.isdir(src_folder):
+                os.makedirs(dst_folder, exist_ok=True)
+                for file_name in os.listdir(src_folder):
+                    shutil.copyfile(
+                        os.path.join(src_folder, file_name),
+                        os.path.join(dst_folder, file_name)
+                    )
+                print(f"Overwrote custom PokiRoom icons in {dst_folder}")
+
+    print("--- Configuration Done ---")
 
 if __name__ == "__main__":
     configure()

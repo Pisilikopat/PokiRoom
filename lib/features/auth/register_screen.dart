@@ -127,8 +127,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('🐱', style: TextStyle(fontSize: 48)),
-                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset('assets/icons/app_icon.png', width: 76, height: 76),
+                ),
+                const SizedBox(height: 12),
                 Text(
                   'Yeni bir pati izi bırak',
                   style: textTheme.bodyMedium?.copyWith(
