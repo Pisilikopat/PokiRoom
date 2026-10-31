@@ -15,9 +15,9 @@ class PocketHeader extends StatelessWidget {
       height: 150,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: PokiColors.surface,
+        color: PokiColors.surfaceOf(context),
         borderRadius: PokiRadius.all,
-        boxShadow: PokiShadows.soft,
+        boxShadow: PokiShadows.softOf(context),
       ),
       child: Stack(
         alignment: Alignment.center,

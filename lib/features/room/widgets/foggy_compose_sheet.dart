@@ -11,7 +11,7 @@ class FoggyComposeSheet extends StatefulWidget {
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: PokiColors.background,
+      backgroundColor: PokiColors.backgroundOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(PokiRadius.card)),
       ),

@@ -48,8 +48,8 @@ class DoodleToolbar extends StatelessWidget {
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: selected
-                                ? PokiColors.text
-                                : PokiColors.text.withOpacity(0.15),
+                                ? PokiColors.textOf(context)
+                                : PokiColors.textOf(context).withOpacity(0.15),
                             width: selected ? 3 : 1.5,
                           ),
                         ),
@@ -72,7 +72,7 @@ class DoodleToolbar extends StatelessWidget {
                           color: controller.color,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: PokiColors.text.withOpacity(0.2),
+                            color: PokiColors.textOf(context).withOpacity(0.2),
                           ),
                         ),
                       ),

@@ -51,20 +51,21 @@ class _DoodleCanvasState extends State<DoodleCanvas> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AspectRatio(
       aspectRatio: 1,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: PokiColors.background,
+          color: PokiColors.surfaceOf(context),
           borderRadius: PokiRadius.all,
-          boxShadow: PokiShadows.soft,
+          boxShadow: PokiShadows.softOf(context),
         ),
         child: ClipRRect(
           borderRadius: PokiRadius.all,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              CustomPaint(painter: _DotGridPainter()),
+              CustomPaint(painter: _DotGridPainter(isDark: isDark)),
               LayoutBuilder(
                 builder: (context, box) {
                   final size = box.biggest;
@@ -153,9 +154,14 @@ class DoodleStrokesPainter extends CustomPainter {
 }
 
 class _DotGridPainter extends CustomPainter {
+  const _DotGridPainter({required this.isDark});
+
+  final bool isDark;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = PokiColors.text.withOpacity(0.08);
+    final paint = Paint()
+      ..color = (isDark ? PokiColors.darkText : PokiColors.text).withOpacity(0.08);
     const step = 24.0;
     for (var y = step / 2; y < size.height; y += step) {
       for (var x = step / 2; x < size.width; x += step) {
@@ -165,5 +171,6 @@ class _DotGridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _DotGridPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }

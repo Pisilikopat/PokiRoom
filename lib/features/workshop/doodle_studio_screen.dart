@@ -117,7 +117,6 @@ class _DoodleStudioScreenState extends State<DoodleStudioScreen> {
           ),
         ),
       ),
-      backgroundColor: PokiColors.background,
     );
   }
 }

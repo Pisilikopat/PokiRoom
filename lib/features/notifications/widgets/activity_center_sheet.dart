@@ -16,7 +16,7 @@ class ActivityCenterSheet extends StatelessWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: PokiColors.background,
+      backgroundColor: PokiColors.backgroundOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(PokiRadius.card)),
       ),
@@ -118,8 +118,10 @@ class _ActivityTile extends StatelessWidget {
     final unread = !notification.isRead;
     return Material(
       color: unread
-          ? PokiColors.incomingBubble.withOpacity(0.6)
-          : PokiColors.surface,
+          ? (Theme.of(context).brightness == Brightness.dark
+              ? PokiColors.darkIncomingBubble.withOpacity(0.7)
+              : PokiColors.incomingBubble.withOpacity(0.6))
+          : PokiColors.surfaceOf(context),
       borderRadius: PokiRadius.all,
       child: InkWell(
         borderRadius: PokiRadius.all,

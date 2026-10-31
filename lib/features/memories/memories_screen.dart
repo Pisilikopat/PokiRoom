@@ -41,7 +41,7 @@ class _MemoriesScreenState extends State<MemoriesScreen> {
   Future<void> _add() async {
     final action = await showModalBottomSheet<_AddAction>(
       context: context,
-      backgroundColor: PokiColors.background,
+      backgroundColor: PokiColors.backgroundOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(PokiRadius.card)),
       ),
@@ -130,7 +130,13 @@ class _MemoriesScreenState extends State<MemoriesScreen> {
       ),
       body: Stack(
         children: [
-          const Positioned.fill(child: CustomPaint(painter: _CorkPainter())),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _CorkPainter(
+                isDark: Theme.of(context).brightness == Brightness.dark,
+              ),
+            ),
+          ),
           StreamBuilder<List<PokiMemory>>(
             stream: _stream,
             builder: (context, snapshot) {
@@ -191,16 +197,27 @@ class _MemoriesScreenState extends State<MemoriesScreen> {
   }
 }
 
-/// Mantar doku: sabit tohumlu rastgele benekler.
+/// Mantar doku: sabit tohumlu rastgele benekler (Gece & Gündüz uyumlu).
 class _CorkPainter extends CustomPainter {
-  const _CorkPainter();
+  const _CorkPainter({required this.isDark});
+
+  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFE6CFAA));
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = isDark ? const Color(0xFF26201B) : const Color(0xFFE6CFAA),
+    );
     final rnd = math.Random(42);
-    final dark = Paint()..color = const Color(0xFFB58B5A).withOpacity(0.25);
-    final light = Paint()..color = const Color(0xFFF5E3C3).withOpacity(0.45);
+    final dark = Paint()
+      ..color = isDark
+          ? Colors.black.withOpacity(0.35)
+          : const Color(0xFFB58B5A).withOpacity(0.25);
+    final light = Paint()
+      ..color = isDark
+          ? const Color(0xFF383028).withOpacity(0.4)
+          : const Color(0xFFF5E3C3).withOpacity(0.45);
     for (var i = 0; i < 320; i++) {
       final p = Offset(rnd.nextDouble() * size.width, rnd.nextDouble() * size.height);
       canvas.drawCircle(p, 0.8 + rnd.nextDouble() * 1.6, i.isEven ? dark : light);
@@ -208,5 +225,6 @@ class _CorkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _CorkPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }

@@ -161,10 +161,15 @@ class _Banner extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: PokiColors.background,
+            color: PokiColors.backgroundOf(context),
             borderRadius: PokiRadius.all,
-            border: Border.all(color: PokiColors.primary, width: 2),
-            boxShadow: PokiShadows.soft,
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? PokiColors.darkPrimary
+                  : PokiColors.primary,
+              width: 2,
+            ),
+            boxShadow: PokiShadows.softOf(context),
           ),
           child: Row(
             children: [

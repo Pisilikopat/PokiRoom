@@ -31,7 +31,7 @@ class StickerPickerSheet extends StatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: PokiColors.background,
+      backgroundColor: PokiColors.backgroundOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(PokiRadius.card)),
       ),
@@ -141,7 +141,7 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
                     itemBuilder: (context, i) {
                       final s = list[i];
                       return Material(
-                        color: PokiColors.surface,
+                        color: PokiColors.surfaceOf(context),
                         borderRadius: PokiRadius.all,
                         child: InkWell(
                           borderRadius: PokiRadius.all,

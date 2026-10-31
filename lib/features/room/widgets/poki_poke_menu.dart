@@ -20,7 +20,7 @@ class PokiPokeMenu extends StatelessWidget {
     return showModalBottomSheet<PokiPokeAction>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: PokiColors.background,
+      backgroundColor: PokiColors.backgroundOf(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(PokiRadius.card)),
       ),
@@ -94,8 +94,9 @@ class _MenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: PokiColors.surface,
+      color: PokiColors.surfaceOf(context),
       borderRadius: PokiRadius.all,
       child: InkWell(
         borderRadius: PokiRadius.all,
@@ -108,11 +109,11 @@ class _MenuTile extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: const BoxDecoration(
-                  color: PokiColors.primary,
+                decoration: BoxDecoration(
+                  color: isDark ? PokiColors.darkPrimary : PokiColors.primary,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(item.icon, color: PokiColors.background),
+                child: Icon(item.icon, color: isDark ? PokiColors.darkBackground : PokiColors.background),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

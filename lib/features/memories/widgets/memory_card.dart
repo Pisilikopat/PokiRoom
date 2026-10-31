@@ -47,20 +47,21 @@ class MemoryCard extends StatelessWidget {
 
   Widget _body(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final stamp = Text(
       formatStamp(memory.createdAt),
       textAlign: TextAlign.center,
       style: textTheme.labelSmall?.copyWith(
         letterSpacing: 0.6,
         fontWeight: FontWeight.w700,
-        color: PokiColors.text.withOpacity(0.6),
+        color: PokiColors.textOf(context).withOpacity(0.6),
       ),
     );
 
     switch (memory.kind) {
       case MemoryKind.sticker:
         return _Frame(
-          color: PokiColors.background,
+          color: PokiColors.surfaceOf(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -69,7 +70,7 @@ class MemoryCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: PokiColors.surface,
+                    color: isDark ? PokiColors.darkBackground : PokiColors.surface,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: memory.stickerId == null
@@ -84,7 +85,7 @@ class MemoryCard extends StatelessWidget {
         );
       case MemoryKind.foggy:
         return _Frame(
-          color: PokiColors.incomingBubble,
+          color: PokiColors.incomingBubbleOf(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -98,10 +99,15 @@ class MemoryCard extends StatelessWidget {
         );
       default:
         return _Frame(
-          color: Color.alphaBlend(
-            PokiColors.primary.withOpacity(0.35),
-            PokiColors.background,
-          ),
+          color: isDark
+              ? Color.alphaBlend(
+                  PokiColors.darkPrimary.withOpacity(0.25),
+                  PokiColors.darkSurface,
+                )
+              : Color.alphaBlend(
+                  PokiColors.primary.withOpacity(0.35),
+                  PokiColors.background,
+                ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -130,13 +136,7 @@ class _Frame extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: PokiRadius.all,
-        boxShadow: [
-          BoxShadow(
-            color: PokiColors.text.withOpacity(0.18),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        boxShadow: PokiShadows.softOf(context),
       ),
       child: child,
     );
