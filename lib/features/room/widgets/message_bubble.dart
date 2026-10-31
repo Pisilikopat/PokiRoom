@@ -61,6 +61,11 @@ class MessageBubble extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final maxWidth = MediaQuery.of(context).size.width * 0.75;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bubbleColor = isMine
+        ? (isDark ? PokiColors.darkPrimary : PokiColors.primary)
+        : (isDark ? PokiColors.darkIncomingBubble : PokiColors.incomingBubble);
+
     // Çıkartma mesajı: content = sticker id
     if (message.type == 'sticker') {
       return Align(
@@ -71,8 +76,7 @@ class MessageBubble extends StatelessWidget {
             margin: const EdgeInsets.symmetric(vertical: 4),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: (isMine ? PokiColors.primary : PokiColors.incomingBubble)
-                  .withOpacity(0.35),
+              color: bubbleColor.withOpacity(0.35),
               borderRadius: PokiRadius.all,
             ),
             child: Column(
@@ -102,9 +106,9 @@ class MessageBubble extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 4),
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
           decoration: BoxDecoration(
-            color: isMine ? PokiColors.primary : PokiColors.incomingBubble,
+            color: bubbleColor,
             borderRadius: PokiRadius.all,
-            boxShadow: PokiShadows.soft,
+            boxShadow: PokiShadows.softOf(context),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,

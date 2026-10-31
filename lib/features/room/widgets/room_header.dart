@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/poki_theme.dart';
 import '../../../data/models/poki_user.dart';
+import '../../../main.dart';
 import '../../notifications/widgets/activity_bell_button.dart';
 
 /// Üst "Cep Odası": iki kedi + masa lambası, PokiPet sayacı, durum rozetleri.
@@ -36,11 +37,11 @@ class RoomHeader extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: PokiColors.surface,
+        color: PokiColors.surfaceOf(context),
         borderRadius: const BorderRadius.vertical(
           bottom: Radius.circular(PokiRadius.card),
         ),
-        boxShadow: PokiShadows.soft,
+        boxShadow: PokiShadows.softOf(context),
       ),
       child: SafeArea(
         bottom: false,
@@ -68,32 +69,57 @@ class RoomHeader extends StatelessWidget {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         onSelected: (value) {
-                          if (value == 'close_pocket') {
+                          if (value == 'toggle_theme') {
+                            PokiRoomApp.toggleTheme();
+                          } else if (value == 'close_pocket') {
                             onClosePocket();
                           }
                         },
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: 'close_pocket',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.door_back_door_outlined,
-                                  color: Colors.red.shade400,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Cebi Kapat',
-                                  style: TextStyle(
-                                    color: Colors.red.shade400,
-                                    fontWeight: FontWeight.w600,
+                        itemBuilder: (context) {
+                          final isDark = Theme.of(context).brightness == Brightness.dark;
+                          return [
+                            PopupMenuItem(
+                              value: 'toggle_theme',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isDark
+                                        ? Icons.light_mode_rounded
+                                        : Icons.dark_mode_rounded,
+                                    size: 20,
+                                    color: isDark ? PokiColors.lampOn : null,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    isDark ? 'Gündüz Modu' : 'Gece Modu',
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                            const PopupMenuDivider(),
+                            PopupMenuItem(
+                              value: 'close_pocket',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.door_back_door_outlined,
+                                    color: Colors.red.shade400,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Cebi Kapat',
+                                    style: TextStyle(
+                                      color: Colors.red.shade400,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ];
+                        },
                       ),
                     ],
                   ),
@@ -149,7 +175,7 @@ class _PokiPetChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: PokiColors.background,
+        color: PokiColors.backgroundOf(context),
         borderRadius: PokiRadius.all,
       ),
       child: Row(
@@ -251,7 +277,7 @@ class _CatColumn extends StatelessWidget {
             margin: const EdgeInsets.only(top: 6),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: PokiColors.background,
+              color: PokiColors.backgroundOf(context),
               borderRadius: PokiRadius.all,
             ),
             child: Text(badge,

@@ -9,6 +9,7 @@ import '../../core/services/notification_service.dart';
 import '../../core/theme/poki_theme.dart';
 import '../../data/models/poki_user.dart';
 import '../../data/repositories/user_repository.dart';
+import '../../main.dart';
 import '../../shared/widgets/poki_card.dart';
 import '../memories/memories_screen.dart';
 import '../notifications/widgets/activity_bell_button.dart';
@@ -147,6 +148,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const ActivityBellButton(),
+                  ValueListenableBuilder<ThemeMode>(
+                    valueListenable: PokiRoomApp.themeMode,
+                    builder: (context, mode, _) {
+                      final isDark = mode == ThemeMode.dark;
+                      return IconButton(
+                        tooltip: isDark ? 'Gündüz Moduna Geç' : 'Gece Moduna Geç',
+                        icon: Icon(
+                          isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                          color: isDark ? PokiColors.lampOn : null,
+                        ),
+                        onPressed: PokiRoomApp.toggleTheme,
+                      );
+                    },
+                  ),
                   IconButton(
                     tooltip: 'Çıkış Yap',
                     icon: const Icon(Icons.logout_rounded),

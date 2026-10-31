@@ -23,18 +23,34 @@ Future<void> main() async {
 class PokiRoomApp extends StatelessWidget {
   const PokiRoomApp({super.key});
 
+  /// Uygulama genelinde anlık tema değiştirici (Açık / Koyu)
+  static final ValueNotifier<ThemeMode> themeMode =
+      ValueNotifier<ThemeMode>(ThemeMode.light);
+
+  static void toggleTheme() {
+    themeMode.value =
+        themeMode.value == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'PokiRoom',
-      debugShowCheckedModeBanner: false,
-      theme: PokiTheme.light,
-      navigatorKey: appNavigatorKey,
-      builder: (context, child) => PokiNotificationOverlay(
-        onTap: NotificationRouter.open,
-        child: child ?? const SizedBox.shrink(),
-      ),
-      home: const AuthGate(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeMode,
+      builder: (context, currentMode, _) {
+        return MaterialApp(
+          title: 'PokiRoom',
+          debugShowCheckedModeBanner: false,
+          theme: PokiTheme.light,
+          darkTheme: PokiTheme.dark,
+          themeMode: currentMode,
+          navigatorKey: appNavigatorKey,
+          builder: (context, child) => PokiNotificationOverlay(
+            onTap: NotificationRouter.open,
+            child: child ?? const SizedBox.shrink(),
+          ),
+          home: const AuthGate(),
+        );
+      },
     );
   }
 }

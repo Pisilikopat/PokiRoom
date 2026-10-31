@@ -7,23 +7,24 @@ class PokiCard extends StatelessWidget {
   const PokiCard({
     super.key,
     required this.child,
-    this.color = PokiColors.surface,
+    this.color,
     this.padding = const EdgeInsets.all(20),
   });
 
   final Widget child;
-  final Color color;
+  final Color? color;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = color ?? PokiColors.surfaceOf(context);
     return Container(
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: color,
+        color: effectiveColor,
         borderRadius: PokiRadius.all,
-        boxShadow: PokiShadows.soft,
+        boxShadow: PokiShadows.softOf(context),
       ),
       child: child,
     );
