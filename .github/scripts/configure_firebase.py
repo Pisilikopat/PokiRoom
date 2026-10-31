@@ -100,11 +100,14 @@ def configure():
                     )
                 print(f"Overwrote custom PokiRoom icons in {dst_folder}")
 
-    # 5. Configure AndroidManifest.xml (Permissions & Notification Channel)
+    # 5. Configure AndroidManifest.xml (Permissions, Notification Channel & App Name)
     manifest_path = os.path.join("android", "app", "src", "main", "AndroidManifest.xml")
     if os.path.exists(manifest_path):
         with open(manifest_path, "r", encoding="utf-8") as f:
             manifest = f.read()
+
+        # Update app launcher title to PokiRoom
+        manifest = manifest.replace('android:label="poki_room"', 'android:label="PokiRoom"')
 
         permissions = [
             '<uses-permission android:name="android.permission.INTERNET"/>',
@@ -123,7 +126,17 @@ def configure():
 
         with open(manifest_path, "w", encoding="utf-8") as f:
             f.write(manifest)
-        print(f"Configured AndroidManifest.xml with notification permissions and metadata.")
+        print(f"Configured AndroidManifest.xml with app label PokiRoom and notification permissions.")
+
+    # 6. Configure strings.xml if exists
+    strings_path = os.path.join("android", "app", "src", "main", "res", "values", "strings.xml")
+    if os.path.exists(strings_path):
+        with open(strings_path, "r", encoding="utf-8") as f:
+            strings = f.read()
+        strings = strings.replace("poki_room", "PokiRoom")
+        with open(strings_path, "w", encoding="utf-8") as f:
+            f.write(strings)
+        print(f"Updated app title in {strings_path}")
 
     print("--- Configuration Done ---")
 

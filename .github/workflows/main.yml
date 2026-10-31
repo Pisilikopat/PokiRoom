@@ -54,11 +54,13 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Build Android APK
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/PokiRoom.apk
 
       - name: Upload APK Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: poki-room-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          name: PokiRoom-APK
+          path: build/app/outputs/flutter-apk/PokiRoom.apk
