@@ -52,16 +52,49 @@ class RoomHeader extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    tooltip: 'Cebi Kapat',
-                    icon: const Icon(Icons.logout_rounded),
-                    onPressed: onClosePocket,
+                    tooltip: 'Geri Dön',
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                    onPressed: () => Navigator.of(context).maybePop(),
                   ),
+                  _PokiPetChip(emoji: _petEmoji, streak: streak),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const ActivityBellButton(),
-                      const SizedBox(width: 4),
-                      _PokiPetChip(emoji: _petEmoji, streak: streak),
+                      PopupMenuButton<String>(
+                        tooltip: 'Seçenekler',
+                        icon: const Icon(Icons.more_vert_rounded),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        onSelected: (value) {
+                          if (value == 'close_pocket') {
+                            onClosePocket();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'close_pocket',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.door_back_door_outlined,
+                                  color: Colors.red.shade400,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Cebi Kapat',
+                                  style: TextStyle(
+                                    color: Colors.red.shade400,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ],

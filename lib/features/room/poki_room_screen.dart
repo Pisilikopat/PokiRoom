@@ -378,18 +378,39 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Cebi kapatalım mı? 🐾'),
-        content: Text(
-          'Oda $partnerName için de kapanacak. Başka biriyle konuşabilmen için bu gerekli.',
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Row(
+          children: [
+            Text('🐾', style: TextStyle(fontSize: 24)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Cebi kapatalım mı?',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         ),
+        content: Text(
+          '$partnerName ile olan mevcut odanız sonlandırılacak. Başka biriyle eşleşebilmek veya odayı sıfırlamak için bu gereklidir.\n\nEmin misin?',
+          style: const TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
+            child: const Text('Vazgeç', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade400,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Cebi Kapat'),
+            child: const Text('Evet, Cebi Kapat'),
           ),
         ],
       ),
