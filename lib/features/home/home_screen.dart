@@ -9,7 +9,6 @@ import '../../core/services/notification_service.dart';
 import '../../core/theme/poki_theme.dart';
 import '../../data/models/poki_user.dart';
 import '../../data/repositories/user_repository.dart';
-import '../../data/services/notification_center.dart';
 import '../../shared/widgets/poki_card.dart';
 import '../memories/memories_screen.dart';
 import '../notifications/widgets/activity_bell_button.dart';
@@ -32,7 +31,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    NotificationCenter.instance.start();
     _load();
   }
 

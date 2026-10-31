@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/poki_theme.dart';
+import '../../data/services/notification_center.dart';
 import '../home/home_screen.dart';
 import 'login_screen.dart';
 
 /// Oturum durumuna göre LoginScreen veya HomeScreen gösterir.
+/// Giriş yapıldığında NotificationCenter'ı başlatır, çıkış yapıldığında durdurur.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -28,8 +30,20 @@ class _AuthGateState extends State<AuthGate> {
     _loggedIn = session != null;
     _ready = true;
 
+    // Oturum zaten varsa bildirimleri hemen başlat
+    if (_loggedIn) {
+      NotificationCenter.instance.start();
+    }
+
     _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final hasSession = data.session != null;
+      if (hasSession && !_loggedIn) {
+        // Yeni giriş → bildirimleri başlat
+        NotificationCenter.instance.start();
+      } else if (!hasSession && _loggedIn) {
+        // Çıkış → bildirimleri durdur
+        NotificationCenter.instance.stop();
+      }
       if (mounted && hasSession != _loggedIn) {
         setState(() => _loggedIn = hasSession);
       }
