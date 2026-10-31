@@ -66,6 +66,120 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  void _showForgotPasswordDialog() {
+    final resetEmailController = TextEditingController(
+      text: _emailController.text.trim(),
+    );
+    bool resetLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: const Row(
+              children: [
+                Text('🔑', style: TextStyle(fontSize: 24)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Şifremi Unuttum',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Kayıtlı e-posta adresini gir, sana hemen bir şifre sıfırlama bağlantısı gönderelim 🐾',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: PokiColors.text.withOpacity(0.7),
+                        height: 1.4,
+                      ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: resetEmailController,
+                  keyboardType: TextInputType.emailAddress,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'E-posta adresin',
+                    prefixIcon: Icon(Icons.mail_outline_rounded),
+                  ),
+                ),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              TextButton(
+                onPressed: resetLoading ? null : () => Navigator.of(ctx).pop(),
+                child: const Text('Vazgeç', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: resetLoading
+                    ? null
+                    : () async {
+                        final email = resetEmailController.text.trim();
+                        if (email.isEmpty || !email.contains('@')) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Lütfen geçerli bir e-posta yaz 🐾')),
+                          );
+                          return;
+                        }
+
+                        setDialogState(() => resetLoading = true);
+
+                        try {
+                          await Supabase.instance.client.auth.resetPasswordForEmail(email);
+                          if (ctx.mounted) {
+                            Navigator.of(ctx).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Sıfırlama bağlantısı e-postana gönderildi! 📧'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } on AuthException catch (e) {
+                          setDialogState(() => resetLoading = false);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(_friendlyError(e.message))),
+                            );
+                          }
+                        } catch (_) {
+                          setDialogState(() => resetLoading = false);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('E-posta gönderilemedi, tekrar dener misin? 🐱')),
+                            );
+                          }
+                        }
+                      },
+                child: resetLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Bağlantı Gönder 🐾'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -127,6 +241,25 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: const InputDecoration(
                           hintText: 'Şifre',
                           prefixIcon: Icon(Icons.lock_outline_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _showForgotPasswordDialog,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            'Şifremi Unuttum?',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: PokiColors.primaryButton,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ),
                       if (_error != null) ...[
