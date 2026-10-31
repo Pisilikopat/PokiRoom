@@ -87,7 +87,7 @@ class _LiveDoodleScreenState extends State<LiveDoodleScreen> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: PokiColors.background,
+      backgroundColor: PokiColors.backgroundOf(context),
       appBar: AppBar(title: const Text('Birlikte Çiz 🐾')),
       body: SafeArea(
         child: Padding(
@@ -102,8 +102,8 @@ class _LiveDoodleScreenState extends State<LiveDoodleScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: here
-                        ? PokiColors.incomingBubble
-                        : PokiColors.surface,
+                        ? PokiColors.incomingBubbleOf(context)
+                        : PokiColors.surfaceOf(context),
                     borderRadius: PokiRadius.all,
                   ),
                   child: Text(
