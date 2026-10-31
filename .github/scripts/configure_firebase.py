@@ -100,6 +100,31 @@ def configure():
                     )
                 print(f"Overwrote custom PokiRoom icons in {dst_folder}")
 
+    # 5. Configure AndroidManifest.xml (Permissions & Notification Channel)
+    manifest_path = os.path.join("android", "app", "src", "main", "AndroidManifest.xml")
+    if os.path.exists(manifest_path):
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = f.read()
+
+        permissions = [
+            '<uses-permission android:name="android.permission.INTERNET"/>',
+            '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>',
+            '<uses-permission android:name="android.permission.VIBRATE"/>',
+            '<uses-permission android:name="android.permission.WAKE_LOCK"/>',
+            '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>',
+        ]
+        for perm in permissions:
+            if perm not in manifest:
+                manifest = manifest.replace("<application", f"{perm}\n    <application", 1)
+
+        channel_meta = '<meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="poki_channel"/>'
+        if channel_meta not in manifest and "</application>" in manifest:
+            manifest = manifest.replace("</application>", f"    {channel_meta}\n    </application>", 1)
+
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            f.write(manifest)
+        print(f"Configured AndroidManifest.xml with notification permissions and metadata.")
+
     print("--- Configuration Done ---")
 
 if __name__ == "__main__":

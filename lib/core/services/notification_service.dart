@@ -35,6 +35,12 @@ class NotificationService {
           sound: true,
         );
 
+        await messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
       debugPrint('Bildirim izin durumu: ${settings.authorizationStatus}');
 
       _initialized = true;
