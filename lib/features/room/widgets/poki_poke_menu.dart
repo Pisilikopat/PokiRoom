@@ -10,6 +10,7 @@ enum PokiPokeAction {
   liveDoodle,
   workshop,
   memories,
+  puzzle,
 }
 
 /// Poki-Poke menüsü (alt panel, 2 sütunlu ızgara).
@@ -44,6 +45,8 @@ class PokiPokeMenu extends StatelessWidget {
           'Çiz, çıkartma yap'),
       const _MenuItem(PokiPokeAction.memories, Icons.push_pin_rounded, 'Anılar',
           'Mantar panomuz'),
+      const _MenuItem(PokiPokeAction.puzzle, Icons.extension_rounded,
+          'Poki Puzzle', 'Ortak anı parçaları'),
     ];
 
     return SafeArea(

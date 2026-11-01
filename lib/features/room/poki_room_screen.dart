@@ -18,6 +18,7 @@ import '../../data/repositories/room_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/services/room_presence.dart';
 import '../memories/memories_screen.dart';
+import '../puzzle/puzzle_setup_screen.dart';
 import '../workshop/doodle_studio_screen.dart';
 import '../workshop/live_doodle_screen.dart';
 import '../workshop/widgets/sticker_picker_sheet.dart';
@@ -227,9 +228,19 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
         _openWorkshop();
       case PokiPokeAction.memories:
         _openMemories();
+      case PokiPokeAction.puzzle:
+        _openPuzzle();
       case null:
         break;
     }
+  }
+
+  void _openPuzzle() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PuzzleSetupScreen(roomId: widget.roomId),
+      ),
+    );
   }
 
   Future<void> _sendPoke() async {
