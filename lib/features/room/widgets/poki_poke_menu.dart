@@ -11,6 +11,7 @@ enum PokiPokeAction {
   workshop,
   memories,
   puzzle,
+  quiz,
 }
 
 /// Poki-Poke menüsü (alt panel, 2 sütunlu ızgara).
@@ -47,6 +48,8 @@ class PokiPokeMenu extends StatelessWidget {
           'Mantar panomuz'),
       const _MenuItem(PokiPokeAction.puzzle, Icons.extension_rounded,
           'Poki Puzzle', 'Ortak anı parçaları'),
+      const _MenuItem(PokiPokeAction.quiz, Icons.quiz_rounded,
+          'Poki Quiz', 'Ne kadar tanıyorsun?'),
     ];
 
     return SafeArea(
