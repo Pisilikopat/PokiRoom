@@ -16,9 +16,13 @@ import '../../data/repositories/message_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/room_repository.dart';
 import '../../data/repositories/user_repository.dart';
+import '../../data/services/game_lobby_service.dart';
 import '../../data/services/room_presence.dart';
+import '../arcade/games_hub_screen.dart';
 import '../memories/memories_screen.dart';
 import '../puzzle/puzzle_setup_screen.dart';
+import '../quiz/logic/quiz_deck.dart';
+import '../quiz/quiz_game_screen.dart';
 import '../quiz/quiz_lobby_screen.dart';
 import '../workshop/doodle_studio_screen.dart';
 import '../workshop/live_doodle_screen.dart';
@@ -123,6 +127,8 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
 
       _listen(presence.pokes, _onPoke);
       _listen(presence.doodleInvites, _onDoodleInvite);
+      GameLobbyService.instance.init(widget.roomId);
+      _listen(GameLobbyService.instance.onQuizInvite, _onQuizInvite);
       _listen(_users.watchMe(), (u) => _setState(() => _me = u));
       _listen(_users.watchUser(partnerId), (u) => _setState(() => _partner = u));
       _listen(_rooms.watchRoom(widget.roomId), (r) => _setState(() => _room = r));
@@ -211,6 +217,28 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     );
   }
 
+  void _onQuizInvite(QuizInvite invite) {
+    HapticFeedback.mediumImpact();
+    _showToast(
+      '🎮 ${invite.hostNickname} seni Poki Quiz\'e çağırıyor 👉 Katıl',
+      duration: const Duration(seconds: 15),
+      onTap: () {
+        _hideToast();
+        GameLobbyService.instance.clearInvite();
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => QuizGameScreen(
+              roomId: widget.roomId,
+              config: invite.config,
+              deck: QuizDeck(invite.questions),
+              isHost: false,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ------------------------------------------------------------ Poki-Poke
 
   Future<void> _openMenu() async {
@@ -229,13 +257,19 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
         _openWorkshop();
       case PokiPokeAction.memories:
         _openMemories();
-      case PokiPokeAction.puzzle:
-        _openPuzzle();
-      case PokiPokeAction.quiz:
-        _openQuiz();
+      case PokiPokeAction.arcade:
+        _openArcade();
       case null:
         break;
     }
+  }
+
+  void _openArcade() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GamesHubScreen(roomId: widget.roomId),
+      ),
+    );
   }
 
   void _openPuzzle() {

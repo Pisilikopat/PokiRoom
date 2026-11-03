@@ -1,6 +1,12 @@
 // lib/features/quiz/quiz_lobby_screen.dart
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
+import '../../data/repositories/user_repository.dart';
+import '../../data/services/game_lobby_service.dart';
+import 'data/quiz_question_bank.dart';
+import 'logic/quiz_deck.dart';
 import 'models/quiz_category.dart';
 import 'models/quiz_config.dart';
 import 'models/quiz_mode.dart';
@@ -28,23 +34,87 @@ class _QuizLobbyScreenState extends State<QuizLobbyScreen> {
   Set<QuizCategory> _categories = {...QuizCategory.values};
   QuizRoundLength _length = QuizRoundLength.short;
   final List<QuizQuestion> _custom = [];
+  bool _starting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    GameLobbyService.instance.init(widget.roomId);
+  }
 
   Future<void> _addCustom() async {
     final q = await CustomQuestionSheet.show(context);
     if (q != null) setState(() => _custom.add(q));
   }
 
-  void _start() {
-    Navigator.of(context).push(
+  List<QuizQuestion> _buildQuestions(QuizConfig config) {
+    final count = config.length.questions;
+    final List<QuizQuestion> pool = [...config.customQuestions];
+
+    if (pool.length < count) {
+      final bankPool = config.categories.isNotEmpty
+          ? QuizQuestionBank.sample
+              .where((q) =>
+                  q.category != null && config.categories.contains(q.category))
+              .toList()
+          : QuizQuestionBank.sample.toList();
+
+      final rng = Random();
+      final shuffled = [...bankPool]..shuffle(rng);
+
+      for (final q in shuffled) {
+        if (pool.length >= count) break;
+        if (!pool.any((p) => p.id == q.id)) pool.add(q);
+      }
+    }
+
+    if (pool.length < count) {
+      final all = QuizQuestionBank.sample
+          .where((q) => !pool.any((p) => p.id == q.id))
+          .toList()
+        ..shuffle(Random());
+      for (final q in all) {
+        if (pool.length >= count) break;
+        pool.add(q);
+      }
+    }
+
+    return pool.take(count).toList();
+  }
+
+  Future<void> _start() async {
+    if (_starting) return;
+    setState(() => _starting = true);
+
+    final config = QuizConfig(
+      mode: _mode,
+      categories: _categories,
+      length: _length,
+      customQuestions: List.unmodifiable(_custom),
+    );
+
+    final questions = _buildQuestions(config);
+    final deck = QuizDeck(questions);
+
+    try {
+      final me = await UserRepository().fetchMe();
+      await GameLobbyService.instance.sendQuizInvite(
+        config: config,
+        questions: questions,
+        myNickname: me.nickname,
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
+    setState(() => _starting = false);
+
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => QuizGameScreen(
           roomId: widget.roomId,
-          config: QuizConfig(
-            mode: _mode,
-            categories: _categories,
-            length: _length,
-            customQuestions: List.unmodifiable(_custom),
-          ),
+          config: config,
+          deck: deck,
+          isHost: true,
         ),
       ),
     );
@@ -57,8 +127,7 @@ class _QuizLobbyScreenState extends State<QuizLobbyScreen> {
       appBar: AppBar(
         backgroundColor: QuizPalette.background(context),
         foregroundColor: QuizPalette.text(context),
-        title: Text('Poki Quiz 🎯',
-            style: QuizPalette.title(context)),
+        title: Text('Poki Quiz 🎯', style: QuizPalette.title(context)),
       ),
       body: SafeArea(
         child: Column(
@@ -102,11 +171,13 @@ class _QuizLobbyScreenState extends State<QuizLobbyScreen> {
                         for (final q in _custom)
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading: const Text('✍️', style: TextStyle(fontSize: 22)),
+                            leading:
+                                const Text('✍️', style: TextStyle(fontSize: 22)),
                             title: Text(q.text, style: QuizPalette.body(context)),
                             trailing: IconButton(
                               icon: const Icon(Icons.close_rounded),
-                              onPressed: () => setState(() => _custom.remove(q)),
+                              onPressed: () =>
+                                  setState(() => _custom.remove(q)),
                             ),
                           ),
                         OutlinedButton.icon(
@@ -125,9 +196,15 @@ class _QuizLobbyScreenState extends State<QuizLobbyScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: _start,
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text('Oyunu Başlat'),
+                  onPressed: _starting ? null : _start,
+                  icon: _starting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.play_arrow_rounded),
+                  label: Text(_starting ? 'Hazırlanıyor...' : 'Oyunu Başlat'),
                 ),
               ),
             ),
@@ -152,7 +229,7 @@ class _Section extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: QuizPalette.subtitle(context)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           child,
         ],
       ),

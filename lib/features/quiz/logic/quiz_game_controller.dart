@@ -8,32 +8,31 @@ import '../models/quiz_config.dart';
 import '../models/quiz_side.dart';
 import 'quiz_deck.dart';
 import 'quiz_engine.dart';
+import 'quiz_sync.dart';
 
-/// Motoru ekrana bağlar: seçim durumu, otomatik ilerleme ve (şimdilik) simüle edilen partner.
-///
-/// Adım 4'te [simulatePartner] kapatılacak; partnerin hamleleri Realtime Broadcast'ten gelecek.
+/// Motoru ekrana bağlar: seçim durumu, otomatik ilerleme ve canlı senkronizasyon.
 class QuizGameController extends ChangeNotifier {
   QuizGameController({
     required this.config,
     required this.deck,
     this.starter = QuizSide.me,
-    this.simulatePartner = true,
+    this.sync,
+    bool? simulatePartner,
     this.revealDelay = const Duration(milliseconds: 3500),
     Random? random,
-  })  : engine = QuizEngine(mode: config.mode, deck: deck, starter: starter),
+  })  : simulatePartner = simulatePartner ?? (sync == null),
+        engine = QuizEngine(mode: config.mode, deck: deck, starter: starter),
         _random = random ?? Random() {
+    sync?.attach(this);
     _afterChange();
   }
 
   final QuizConfig config;
   final QuizDeck deck;
-
-  /// Mod A'da ilk soruda gerçeği seçen taraf (oyunu başlatan).
   final QuizSide starter;
   final bool simulatePartner;
-
-  /// Sonuç gösterildikten sonra otomatik ilerleme süresi.
   final Duration revealDelay;
+  final QuizSync? sync;
 
   final QuizEngine engine;
   final Random _random;
@@ -60,6 +59,7 @@ class QuizGameController extends ChangeNotifier {
     if (option == null || !engine.canAct(QuizSide.me)) return;
     try {
       _applyMove(QuizSide.me, option);
+      sync?.sendLock(option: option);
     } on QuizRuleException {
       return;
     }
@@ -69,8 +69,21 @@ class QuizGameController extends ChangeNotifier {
   /// Karşı tarafın bir şeyi seçmesi bekleniyor mu? ("Düşünen kedi" için)
   bool get partnerThinking {
     if (!engine.canAct(QuizSide.partner)) return false;
-    // Mod B'de ben henüz seçmediysem sıra bende, partnerin düşündüğünü göstermeye gerek yok.
     return engine.chooser != null || engine.hasLocked(QuizSide.me);
+  }
+
+  /// Uzaktan gelen hamle bildirimi (QuizSync tarafından çağrılır)
+  void notifyExternalChange() {
+    if (_disposed) return;
+    _afterChange();
+  }
+
+  /// Uzaktan gelen 'sıradaki soru' bildirimi
+  void handleRemoteAdvance() {
+    if (_disposed || engine.phase != QuizPhase.revealed) return;
+    engine.advance();
+    selection = null;
+    _afterChange();
   }
 
   // ------------------------------------------------------------------ iç
@@ -110,6 +123,7 @@ class QuizGameController extends ChangeNotifier {
   void _advance() {
     if (_disposed || engine.phase != QuizPhase.revealed) return;
     engine.advance();
+    sync?.sendAdvance();
     selection = null;
     _afterChange();
   }
@@ -133,6 +147,7 @@ class QuizGameController extends ChangeNotifier {
     _disposed = true;
     _partnerTimer?.cancel();
     _advanceTimer?.cancel();
+    sync?.dispose();
     super.dispose();
   }
 }

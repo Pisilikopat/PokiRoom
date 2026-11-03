@@ -2,12 +2,14 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/poki_theme.dart';
 import 'data/quiz_question_bank.dart';
 import 'logic/quiz_deck.dart';
 import 'logic/quiz_engine.dart';
 import 'logic/quiz_game_controller.dart';
+import 'logic/quiz_sync.dart';
 import 'models/quiz_config.dart';
 import 'models/quiz_mode.dart';
 import 'models/quiz_question.dart';
@@ -20,10 +22,18 @@ import 'widgets/reaction_cat.dart';
 import 'widgets/thinking_cat.dart';
 
 class QuizGameScreen extends StatefulWidget {
-  const QuizGameScreen({super.key, required this.roomId, required this.config});
+  const QuizGameScreen({
+    super.key,
+    required this.roomId,
+    required this.config,
+    this.deck,
+    this.isHost = true,
+  });
 
   final String roomId;
   final QuizConfig config;
+  final QuizDeck? deck;
+  final bool isHost;
 
   @override
   State<QuizGameScreen> createState() => _QuizGameScreenState();
@@ -33,16 +43,27 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
   static const _letters = ['A', 'B', 'C', 'D'];
 
   late final QuizGameController _controller;
+  QuizSync? _sync;
 
   @override
   void initState() {
     super.initState();
-    final deck = QuizDeck(_buildQuestions());
+    final deck = widget.deck ?? QuizDeck(_buildQuestions());
+    final myId = Supabase.instance.client.auth.currentUser?.id;
+
+    if (myId != null) {
+      _sync = QuizSync(
+        roomId: widget.roomId,
+        myId: myId,
+        isHost: widget.isHost,
+      );
+    }
+
     _controller = QuizGameController(
       config: widget.config,
       deck: deck,
-      starter: QuizSide.me,
-      simulatePartner: true,
+      starter: widget.isHost ? QuizSide.me : QuizSide.partner,
+      sync: _sync,
     );
   }
 
@@ -50,13 +71,13 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
     final count = widget.config.length.questions;
     final custom = widget.config.customQuestions;
 
-    // Özel sorular varsa onları kullan, sonra bankadan tamamla
     final List<QuizQuestion> pool = [...custom];
 
     if (pool.length < count) {
       final bankPool = widget.config.categories.isNotEmpty
           ? QuizQuestionBank.sample
-              .where((q) => q.category != null &&
+              .where((q) =>
+                  q.category != null &&
                   widget.config.categories.contains(q.category))
               .toList()
           : QuizQuestionBank.sample.toList();
@@ -70,7 +91,6 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
       }
     }
 
-    // Hâlâ yetmiyorsa tüm bankadan tamamla
     if (pool.length < count) {
       final all = QuizQuestionBank.sample
           .where((q) => !pool.any((p) => p.id == q.id))
@@ -104,19 +124,13 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
       final partnerPick = rec.partnerPick;
 
       if (eng.mode == QuizMode.readMyMind) {
-        // Doğru şık: chooser'ın seçimi
-        final chooserPick =
-            eng.chooser == QuizSide.me ? myPick : partnerPick;
-        final guesserPick =
-            eng.chooser == QuizSide.me ? partnerPick : myPick;
+        final chooserPick = eng.chooser == QuizSide.me ? myPick : partnerPick;
+        final guesserPick = eng.chooser == QuizSide.me ? partnerPick : myPick;
 
         if (i == chooserPick) return OptionVisual.correct;
         if (i == guesserPick && !rec.matched) return OptionVisual.wrong;
         return OptionVisual.idle;
       } else {
-        // Soulmates: aynı şıkkı seçtilerse yeşil, farklıysa:
-        // - kendi seçim: wrong (eğer eşleşmediyse)
-        // - partner seçimi: correct
         if (rec.matched) {
           if (i == myPick) return OptionVisual.correct;
         } else {
@@ -127,19 +141,16 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
       }
     }
 
-    // Partner kilitledi ama ben kilitlemedim → partner seçimi buğulu
     if (eng.hasLocked(QuizSide.partner) && !eng.hasLocked(QuizSide.me)) {
       if (mySelection == i) return OptionVisual.selected;
       return OptionVisual.fogged;
     }
 
-    // Ben kilitledim, partner bekliyor
     if (eng.hasLocked(QuizSide.me)) {
       if (i == mySelection) return OptionVisual.lockedMine;
       return OptionVisual.idle;
     }
 
-    // Seçim aşaması
     return mySelection == i ? OptionVisual.selected : OptionVisual.idle;
   }
 
@@ -151,7 +162,9 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
       final rec = eng.lastRecord;
       if (rec == null) return '';
       if (eng.mode == QuizMode.readMyMind) {
-        return rec.matched ? '✨ Doğru tahmin! +10 Pati Puanı' : '🙈 Yanlış tahmin...';
+        return rec.matched
+            ? '✨ Doğru tahmin! +10 Pati Puanı'
+            : '🙈 Yanlış tahmin...';
       } else {
         return rec.matched ? '💖 Ruh İkizisiniz!' : '🐱 Zıt kutuplar...';
       }
@@ -172,9 +185,8 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
       }
     }
 
-    // Soulmates / answering
     if (eng.hasLocked(QuizSide.me)) {
-      return 'Seçimin kilitlendi 🔒 Partner düşünüyor...';
+      return 'Seçimin kilitlendi 🔒 Partner bekleniyor...';
     }
     return 'İkiniz de seçin, sonra buğu kalkacak 🌫️';
   }
@@ -222,7 +234,6 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
         final eng = _controller.engine;
         final phase = eng.phase;
 
-        // Oyun bitince sonuç ekranına geç
         if (phase == QuizPhase.finished) {
           WidgetsBinding.instance.addPostFrameCallback((_) => _navigate());
         }
@@ -244,13 +255,11 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                // Skor çubuğu
                 _ScoreBar(controller: _controller),
                 const SizedBox(height: 12),
-
-                // Rol banner
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: QuizPalette.sage(context),
                     borderRadius: PokiRadius.all,
@@ -258,16 +267,12 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
                   child: Text(_roleBanner, style: QuizPalette.body(context)),
                 ),
                 const SizedBox(height: 12),
-
-                // Soru kartı
                 QuestionCard(
                   question: question,
                   index: eng.index + 1,
                   total: eng.total,
                 ),
                 const SizedBox(height: 16),
-
-                // Seçenekler
                 for (var i = 0; i < question.options.length; i++)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -275,15 +280,10 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
                       letter: _letters[i],
                       text: question.options[i],
                       visual: _visualFor(i),
-                      onTap: canAct
-                          ? () => _controller.select(i)
-                          : null,
+                      onTap: canAct ? () => _controller.select(i) : null,
                     ),
                   ),
-
                 const SizedBox(height: 8),
-
-                // Kilitle butonu
                 if (canAct && _controller.canLock)
                   ElevatedButton.icon(
                     onPressed: _controller.lockMine,
@@ -294,13 +294,10 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
                       foregroundColor: Colors.white,
                     ),
                   ),
-
-                // Tepki / Düşünen kedi
                 if (_bottomPanel != null) ...[
                   const SizedBox(height: 16),
                   Center(child: _bottomPanel),
                 ],
-
                 const SizedBox(height: 20),
               ],
             ),

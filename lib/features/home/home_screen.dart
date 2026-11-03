@@ -14,6 +14,7 @@ import '../../shared/widgets/poki_card.dart';
 import '../memories/memories_screen.dart';
 import '../notifications/widgets/activity_bell_button.dart';
 import '../workshop/doodle_studio_screen.dart';
+import '../arcade/games_hub_screen.dart';
 import 'widgets/avatar_picker.dart';
 
 /// Ana ekran: Profil başlığı + özellik kartları.
@@ -94,6 +95,18 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => MemoriesScreen(roomId: _me!.currentRoomId!),
+      ),
+    );
+  }
+
+  void _openArcade() {
+    if (_me == null || !_me!.hasRoom) {
+      _showNeedRoomSnackBar();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GamesHubScreen(roomId: _me!.currentRoomId!),
       ),
     );
   }
@@ -199,6 +212,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 subtitle: 'Ortak mantar pano ve hatıralar',
                 color: PokiColors.lampOn.withOpacity(0.35),
                 onTap: _openMemories,
+              ),
+
+              const SizedBox(height: 16),
+
+              _FeatureCard(
+                emoji: '🎮',
+                title: 'Oyun Odası',
+                subtitle: 'Birlikte mini oyunlar oyna, lobi kur veya katıl',
+                color: PokiColors.primaryButton.withOpacity(0.3),
+                onTap: _openArcade,
               ),
             ],
           ),

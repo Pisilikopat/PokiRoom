@@ -10,8 +10,7 @@ enum PokiPokeAction {
   liveDoodle,
   workshop,
   memories,
-  puzzle,
-  quiz,
+  arcade,
 }
 
 /// Poki-Poke menüsü (alt panel, 2 sütunlu ızgara).
@@ -46,10 +45,8 @@ class PokiPokeMenu extends StatelessWidget {
           'Çiz, çıkartma yap'),
       const _MenuItem(PokiPokeAction.memories, Icons.push_pin_rounded, 'Anılar',
           'Mantar panomuz'),
-      const _MenuItem(PokiPokeAction.puzzle, Icons.extension_rounded,
-          'Poki Puzzle', 'Ortak anı parçaları'),
-      const _MenuItem(PokiPokeAction.quiz, Icons.quiz_rounded,
-          'Poki Quiz', 'Ne kadar tanıyorsun?'),
+      const _MenuItem(PokiPokeAction.arcade, Icons.sports_esports_rounded,
+          'Oyun Odası', 'Quiz, Puzzle & fazlası'),
     ];
 
     return SafeArea(
@@ -63,7 +60,7 @@ class PokiPokeMenu extends StatelessWidget {
             const SizedBox(height: 12),
             GridView.count(
               shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics),
               crossAxisCount: 2,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
