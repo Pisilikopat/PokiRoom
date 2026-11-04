@@ -21,8 +21,12 @@ class MessageRepository {
       .limit(100)
       .map((rows) => rows.map(PokiMessage.fromMap).toList());
 
-  Future<void> sendText(String roomId, String text) =>
-      _send(roomId, 'text', text);
+  Future<void> sendText(String roomId, String text, {PokiReplyInfo? reply}) {
+    final finalContent = reply != null
+        ? PokiMessage.formatWithReply(text, reply)
+        : text;
+    return _send(roomId, 'text', finalContent);
+  }
 
   /// Buğulu mesaj: alıcı üzerini silince okunmuş sayılır.
   Future<void> sendFoggy(String roomId, String text) =>

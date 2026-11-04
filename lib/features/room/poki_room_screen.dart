@@ -76,6 +76,8 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   VoidCallback? _toastOnTap;
   Timer? _toastTimer;
   DateTime? _lastPokeSent;
+  PokiMessage? _replyingTo;
+  final FocusNode _inputFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -88,6 +90,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _toastTimer?.cancel();
+    _inputFocusNode.dispose();
     for (final s in _subs) {
       s.cancel();
     }
@@ -421,9 +424,33 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     );
   }
 
+  void _startReply(PokiMessage m) {
+    setState(() => _replyingTo = m);
+    _inputFocusNode.requestFocus();
+  }
+
+  PokiReplyInfo? get _currentReplyInfo {
+    final m = _replyingTo;
+    if (m == null) return null;
+    final senderName =
+        m.senderId == _myId ? 'Sen' : (_partner?.nickname ?? 'Partnerin');
+    String snippet = m.cleanContent;
+    if (m.type == 'sticker') snippet = '🎨 Çıkartma';
+    if (m.type == 'foggy') snippet = '🌫️ Buğulu mesaj';
+    if (snippet.length > 50) snippet = '${snippet.substring(0, 47)}...';
+    return PokiReplyInfo(
+      messageId: m.id,
+      senderNickname: senderName,
+      snippet: snippet,
+    );
+  }
+
   Future<void> _send(String text) async {
+    final replyInfo = _currentReplyInfo;
+    setState(() => _replyingTo = null);
+
     try {
-      await _messages.sendText(widget.roomId, text);
+      await _messages.sendText(widget.roomId, text, reply: replyInfo);
     } on PokiException catch (e) {
       _snack(e.message);
     }
@@ -519,6 +546,9 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                 onSend: _send,
                 onTypingChanged: (typing) => presence?.setTyping(typing),
                 onOpenMenu: _openMenu,
+                replyInfo: _currentReplyInfo,
+                onCancelReply: () => setState(() => _replyingTo = null),
+                focusNode: _inputFocusNode,
               ),
             ],
           ),
@@ -580,6 +610,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
           isMine: mine,
           onFoggyRevealed: () => _onFoggyRevealed(m.id),
           onLongPress: () => _onMessageLongPress(m, mine),
+          onSwipeReply: _startReply,
         );
       },
     );
