@@ -12,8 +12,9 @@ class AvatarPicker extends StatelessWidget {
   const AvatarPicker({
     super.key,
     this.imageUrl,
+    String? avatarUrl,
     required this.onPicked,
-  });
+  }) : imageUrl = imageUrl ?? avatarUrl;
 
   final String? imageUrl;
   final void Function(Uint8List bytes) onPicked;

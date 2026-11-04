@@ -209,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   AvatarPicker(
-                    avatarUrl: _avatarUrl,
+                    imageUrl: _avatarUrl,
                     onPicked: _onAvatarPicked,
                   ),
                   const SizedBox(width: 16),
