@@ -23,6 +23,8 @@ class PokiUser {
 
   bool get hasRoom => currentRoomId != null;
 
+  String get emoji => moodEmoji ?? '🐱';
+
   factory PokiUser.fromMap(Map<String, dynamic> m) => PokiUser(
         id: m['id'] as String,
         customTag: (m['custom_tag'] as String?) ?? '#POKI-????',

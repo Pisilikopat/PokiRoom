@@ -49,7 +49,6 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   void _onSignalingChanged() {
     if (!mounted) return;
     setState(() {});
-    // Arama bittiyse geri dön
     if (widget.signaling.state == CallState.idle) {
       Navigator.of(context).pop();
     }
@@ -124,7 +123,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                       ),
                     ),
                     const Spacer(),
-                    const SizedBox(width: 48), // denge
+                    const SizedBox(width: 48),
                   ],
                 ),
               ),
@@ -167,7 +166,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                       ),
                       child: Center(
                         child: Text(
-                          widget.partner.emoji ?? '🐱',
+                          widget.partner.moodEmoji ?? '🐱',
                           style: const TextStyle(fontSize: 56),
                         ),
                       ),

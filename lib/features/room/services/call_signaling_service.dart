@@ -1,13 +1,12 @@
 // lib/features/room/services/call_signaling_service.dart
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// WebRTC + Supabase Realtime ile sesli arama sinyalizasyonu.
-/// Mimari: P2P WebRTC, STUN (Google), sinyalizasyon Supabase Broadcast.
+/// P2P WebRTC, Google STUN, Supabase Broadcast kanalı.
 class CallSignalingService extends ChangeNotifier {
   CallSignalingService({
     required this.roomId,
@@ -46,6 +45,7 @@ class CallSignalingService extends ChangeNotifier {
   MediaStream? _localStream;
   Timer? _durationTimer;
   Timer? _ringingTimer;
+  final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
 
   static const _iceServers = {
     'iceServers': [
@@ -65,7 +65,11 @@ class CallSignalingService extends ChangeNotifier {
 
   // ───────────── Başlatma ─────────────
 
-  void init() {
+  Future<void> init() async {
+    try {
+      await _remoteRenderer.initialize();
+    } catch (_) {}
+
     _channel = _db.channel('room:$roomId:call');
     _channel!
         .onBroadcast(event: 'call_invite', callback: _onCallInvite)
@@ -78,7 +82,7 @@ class CallSignalingService extends ChangeNotifier {
         .subscribe();
   }
 
-  // ───────────── Arama başlat (Arayan taraf) ─────────────
+  // ───────────── Arama başlat ─────────────
 
   Future<void> startCall() async {
     if (_state != CallState.idle) return;
@@ -87,7 +91,6 @@ class CallSignalingService extends ChangeNotifier {
 
     await _broadcast('call_invite', {'from': myId});
 
-    // 30 saniye içinde cevap gelmezse çağrıyı bitir
     _ringingTimer = Timer(const Duration(seconds: 30), () {
       if (_state == CallState.calling) {
         _endCall(CallEndReason.noAnswer, local: true);
@@ -95,7 +98,7 @@ class CallSignalingService extends ChangeNotifier {
     });
   }
 
-  // ───────────── Aramayı kabul et (Aranan taraf) ─────────────
+  // ───────────── Aramayı kabul et ─────────────
 
   Future<void> acceptCall() async {
     if (_state != CallState.ringing) return;
@@ -221,7 +224,6 @@ class CallSignalingService extends ChangeNotifier {
   Future<void> _setupPeerConnection({required bool isOffer}) async {
     _pc = await createPeerConnection(_iceServers);
 
-    // Yerel mikrofon akışı
     _localStream = await navigator.mediaDevices.getUserMedia({
       'audio': {
         'echoCancellation': true,
@@ -235,7 +237,6 @@ class CallSignalingService extends ChangeNotifier {
       await _pc!.addTrack(track, _localStream!);
     }
 
-    // ICE adaylarını karşı tarafa gönder
     _pc!.onIceCandidate = (candidate) {
       if (candidate.candidate != null) {
         _broadcast('ice_candidate', {
@@ -247,16 +248,15 @@ class CallSignalingService extends ChangeNotifier {
       }
     };
 
-    // Uzak ses akışı gelince
     _pc!.onTrack = (event) {
       if (event.streams.isNotEmpty) {
+        _remoteRenderer.srcObject = event.streams.first;
         _onRemoteStream.add(event.streams.first);
-        _setState(CallState.active);
-        _startDurationTimer();
       }
+      _setState(CallState.active);
+      _startDurationTimer();
     };
 
-    // Bağlantı durumu değişince
     _pc!.onConnectionState = (state) {
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
@@ -275,8 +275,6 @@ class CallSignalingService extends ChangeNotifier {
     }
   }
 
-  // ───────────── Süre sayacı ─────────────
-
   void _startDurationTimer() {
     _durationTimer?.cancel();
     _callDuration = Duration.zero;
@@ -285,8 +283,6 @@ class CallSignalingService extends ChangeNotifier {
       notifyListeners();
     });
   }
-
-  // ───────────── İç durum yönetimi ─────────────
 
   void _setState(CallState s) {
     if (_state == s) return;
@@ -308,6 +304,8 @@ class CallSignalingService extends ChangeNotifier {
     _localStream?.dispose();
     _localStream = null;
 
+    _remoteRenderer.srcObject = null;
+
     await _pc?.close();
     _pc = null;
 
@@ -322,10 +320,7 @@ class CallSignalingService extends ChangeNotifier {
     }
   }
 
-  // ───────────── Payload erişimi ─────────────
-
   dynamic _extract(Map<String, dynamic> payload, String key) {
-    // Supabase bazen payload'ı iç içe gönderir
     final nested = payload['payload'];
     if (nested is Map) {
       return nested[key] ?? payload[key];
@@ -333,11 +328,10 @@ class CallSignalingService extends ChangeNotifier {
     return payload[key];
   }
 
-  // ───────────── Temizleme ─────────────
-
   @override
   void dispose() {
     _endCall(CallEndReason.ended, local: false);
+    _remoteRenderer.dispose();
     final ch = _channel;
     if (ch != null) {
       _db.removeChannel(ch);
@@ -348,8 +342,6 @@ class CallSignalingService extends ChangeNotifier {
     super.dispose();
   }
 }
-
-// ───────────── Modeller ─────────────
 
 enum CallState { idle, calling, ringing, connecting, active }
 

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/poki_theme.dart';
 import '../../../data/models/poki_user.dart';
 
-/// Gelen arama ekranı — tam ekran, nabız animasyonlu.
+/// Gelen arama ekranı — tam ekran alt sayfası, nabız animasyonlu.
 class IncomingCallSheet extends StatefulWidget {
   const IncomingCallSheet({
     super.key,
@@ -138,7 +138,7 @@ class _IncomingCallSheetState extends State<IncomingCallSheet>
                   ),
                   child: Center(
                     child: Text(
-                      widget.caller.emoji ?? '🐱',
+                      widget.caller.moodEmoji ?? '🐱',
                       style: const TextStyle(fontSize: 44),
                     ),
                   ),
