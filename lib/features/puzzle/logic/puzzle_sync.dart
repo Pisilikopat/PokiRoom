@@ -91,28 +91,24 @@ class PuzzleSync {
 
   void _checkPresence() {
     if (_disposed || _channel == null) return;
-    final state = _channel!.presenceState();
+    final presences = _channel!.presenceState();
     var hasPartner = false;
-    for (final entry in state.entries) {
-      for (final pres in entry.value) {
-        final uid = pres.payload['user_id'] as String?;
-        if (uid != null && uid != myId) {
-          hasPartner = true;
-          break;
-        }
+    for (final state in presences) {
+      if (state.key != myId && state.presences.isNotEmpty) {
+        hasPartner = true;
+        break;
       }
-      if (hasPartner) break;
     }
 
     if (hasPartner) {
       _everSawPartner = true;
-      partnerPresent.value = true;
-    } else {
-      partnerPresent.value = false;
-      if (_everSawPartner) {
+    } else if (_everSawPartner && !hasPartner) {
+      if (!_disposed && !_abandonController.isClosed) {
         _abandonController.add(null);
       }
     }
+
+    partnerPresent.value = hasPartner;
   }
 
   void sendPiecePlaced({required int slotIndex, required int pieceIndex}) {
