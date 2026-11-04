@@ -11,7 +11,7 @@ import '../../../core/theme/poki_theme.dart';
 class AvatarPicker extends StatelessWidget {
   const AvatarPicker({
     super.key,
-    this.imageUrl,
+    String? imageUrl,
     String? avatarUrl,
     required this.onPicked,
   }) : imageUrl = imageUrl ?? avatarUrl;
@@ -51,12 +51,15 @@ class AvatarPicker extends StatelessWidget {
               decoration: BoxDecoration(
                 color: PokiColors.primaryButton,
                 shape: BoxShape.circle,
-                border: Border.all(color: PokiColors.background, width: 2),
+                border: Border.all(
+                  color: PokiColors.backgroundOf(context),
+                  width: 2,
+                ),
               ),
               child: const Icon(
                 Icons.camera_alt_rounded,
                 size: 14,
-                color: PokiColors.background,
+                color: Colors.white,
               ),
             ),
           ),
