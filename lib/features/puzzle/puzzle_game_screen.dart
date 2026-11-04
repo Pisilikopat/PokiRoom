@@ -48,7 +48,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
   final List<int> _unplacedPieces = [];
 
   int? _selectedTrayPiece;
-  bool _showGhostHint = false;
+  bool _showGhostHint = true;
   int _elapsedSeconds = 0;
   Timer? _timer;
   bool _isCompleted = false;
@@ -248,13 +248,17 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
         _handleVictory();
       }
     } else {
-      // Yanlış yuva uyarısı
+      // Yanlış yuvaya bırakıldığında nazikçe doğru yuvayı ışıldat
       HapticFeedback.lightImpact();
+      setState(() {
+        _selectedTrayPiece = pieceIndex;
+      });
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tık! Burası değil, başka yuvayı dene 🐾'),
-          duration: Duration(milliseconds: 900),
+        SnackBar(
+          content: Text(
+              'Bu parça #${pieceIndex + 1} numaralı yuvaya ait 🐾 Işıldayan yere dokunabilirsin!'),
+          duration: const Duration(milliseconds: 1400),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -270,7 +274,8 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
   void _onPieceTap(int pieceIndex) {
     setState(() {
       if (_selectedTrayPiece == pieceIndex) {
-        _selectedTrayPiece = null;
+        // İkinci kez aynı parçaya dokunulunca otomatik kendi yuvasına yerleştirilsin!
+        _onSlotDrop(pieceIndex, pieceIndex);
       } else {
         _selectedTrayPiece = pieceIndex;
         HapticFeedback.selectionClick();

@@ -12,7 +12,7 @@ class PuzzleTopBar extends StatelessWidget {
     required this.placed,
     required this.total,
     required this.elapsedSeconds,
-    this.showGhostHint = false,
+    this.showGhostHint = true,
     this.onToggleHint,
     this.partnerHere = false,
   });

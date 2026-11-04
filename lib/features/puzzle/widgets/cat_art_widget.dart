@@ -6,6 +6,7 @@ import '../models/cat_art.dart';
 
 /// Sevimli vektörel kedi illüstrasyonu.
 /// Asset dosyası gerektirmeden Canvas ile çizilir; tüm çözünürlüklerde keskin ve pürüzsüzdür.
+/// 3x3, 4x4 ve 5x5 puzzle dilimlerinde her parçanın görsel detayı olacak şekilde zenginleştirilmiştir.
 class CatArtWidget extends StatelessWidget {
   const CatArtWidget({
     super.key,
@@ -38,9 +39,8 @@ class CatArtPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    final center = Offset(w / 2, h / 2);
 
-    // 1. Arka plan pastel gradyan
+    // 1. Arka plan pastel gradyan (Full bleed)
     final bgRect = Rect.fromLTWH(0, 0, w, h);
     final bgPaint = Paint()
       ..shader = LinearGradient(
@@ -48,25 +48,127 @@ class CatArtPainter extends CustomPainter {
         end: Alignment.bottomRight,
         colors: [
           cat.color,
-          cat.color.withOpacity(0.55),
+          cat.color.withOpacity(0.65),
           const Color(0xFFFFF9F5),
         ],
       ).createShader(bgRect);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bgRect, Radius.circular(w * 0.08)),
-      bgPaint,
-    );
+    canvas.drawRect(bgRect, bgPaint);
 
-    // Arka plan dekoratif minik pati / yıldız desenleri
-    final decorPaint = Paint()
-      ..color = Colors.white.withOpacity(0.4)
+    // 2. Alt Kısım: Ahşap Masa / Masa Kenarı (Alt sıra parçalarına zemin detayı verir)
+    final tableTop = h * 0.81;
+    final tableRect = Rect.fromLTWH(0, tableTop, w, h - tableTop);
+    final tablePaint = Paint()..color = const Color(0xFFE1C6A8);
+    canvas.drawRect(tableRect, tablePaint);
+
+    final woodLinePaint = Paint()
+      ..color = const Color(0xFFB49169)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.5, w * 0.008);
+    canvas.drawLine(Offset(0, tableTop), Offset(w, tableTop), woodLinePaint);
+
+    // Ahşap damarları
+    final grainPaint = Paint()
+      ..color = const Color(0xFFCDB08C)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.0, w * 0.005);
+    canvas.drawLine(
+        Offset(w * 0.08, h * 0.90), Offset(w * 0.40, h * 0.90), grainPaint);
+    canvas.drawLine(
+        Offset(w * 0.58, h * 0.93), Offset(w * 0.92, h * 0.93), grainPaint);
+
+    // 3. Sol Üst: Sevimli Yün Yumağı (Sol üst parçalar için renkli görsel detay)
+    final yarnCenter = Offset(w * 0.16, h * 0.18);
+    final yarnRadius = w * 0.08;
+    final yarnPaint = Paint()
+      ..color = const Color(0xFFFF8A80)
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(w * 0.18, h * 0.18), w * 0.035, decorPaint);
-    canvas.drawCircle(Offset(w * 0.82, h * 0.22), w * 0.045, decorPaint);
-    canvas.drawCircle(Offset(w * 0.14, h * 0.78), w * 0.03, decorPaint);
-    canvas.drawCircle(Offset(w * 0.86, h * 0.76), w * 0.035, decorPaint);
+    final yarnBorder = Paint()
+      ..color = const Color(0xFFE57373)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.5, w * 0.006);
+    canvas.drawCircle(yarnCenter, yarnRadius, yarnPaint);
+    canvas.drawCircle(yarnCenter, yarnRadius, yarnBorder);
 
-    // 2. Kedi Gövdesi ve Başının Renkleri
+    // Yün sarım çizgileri & ip kuyruğu
+    final yarnThreadPaint = Paint()
+      ..color = const Color(0xFFFFCDD2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.5, w * 0.006);
+    canvas.drawArc(
+      Rect.fromCircle(center: yarnCenter, radius: yarnRadius * 0.72),
+      math.pi * 0.2,
+      math.pi * 1.2,
+      false,
+      yarnThreadPaint,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: yarnCenter, radius: yarnRadius * 0.45),
+      math.pi * 0.9,
+      math.pi * 1.1,
+      false,
+      yarnThreadPaint,
+    );
+    // Yünden sarkan sevimli ip
+    final yarnString = Path()
+      ..moveTo(yarnCenter.dx + yarnRadius * 0.8, yarnCenter.dy + yarnRadius * 0.3)
+      ..quadraticBezierTo(w * 0.24, h * 0.22, w * 0.27, h * 0.28);
+    canvas.drawPath(yarnString, yarnBorder);
+
+    // 4. Sağ Üst: Uçuşan Kalp & Parıltılı Yıldız (Sağ üst parçalar için)
+    final heartCenter = Offset(w * 0.83, h * 0.17);
+    final heartPaint = Paint()
+      ..color = const Color(0xFFF06292).withOpacity(0.85)
+      ..style = PaintingStyle.fill;
+    _drawHeart(canvas, heartCenter, w * 0.048, heartPaint);
+
+    // Küçük sarı parıltı yıldız
+    final starCenter = Offset(w * 0.70, h * 0.21);
+    final starPaint = Paint()
+      ..color = const Color(0xFFFFD54F)
+      ..style = PaintingStyle.fill;
+    _drawSparkle(canvas, starCenter, w * 0.032, starPaint);
+    _drawSparkle(canvas, Offset(w * 0.88, h * 0.26), w * 0.022, starPaint);
+
+    // 5. Sol Alt: Masadaki Balık Kraker (Sol alt parçalar için)
+    final fishCenter = Offset(w * 0.15, h * 0.89);
+    final fishPaint = Paint()
+      ..color = const Color(0xFFFFB74D)
+      ..style = PaintingStyle.fill;
+    final fishBorder = Paint()
+      ..color = const Color(0xFFF57C00)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final fishBody = Rect.fromCenter(
+        center: fishCenter, width: w * 0.11, height: w * 0.055);
+    canvas.drawOval(fishBody, fishPaint);
+    canvas.drawOval(fishBody, fishBorder);
+    // Kuyruk
+    final tail = Path()
+      ..moveTo(fishCenter.dx - w * 0.05, fishCenter.dy)
+      ..lineTo(fishCenter.dx - w * 0.08, fishCenter.dy - w * 0.025)
+      ..lineTo(fishCenter.dx - w * 0.08, fishCenter.dy + w * 0.025)
+      ..close();
+    canvas.drawPath(tail, fishPaint);
+    canvas.drawPath(tail, fishBorder);
+    // Göz noktası
+    canvas.drawCircle(Offset(fishCenter.dx + w * 0.03, fishCenter.dy - 1), 1.8,
+        Paint()..color = const Color(0xFF5D4037));
+
+    // 6. Sağ Alt: Pati İzi (Sağ alt parçalar için)
+    final pawCenter = Offset(w * 0.85, h * 0.90);
+    final pawMarkPaint = Paint()
+      ..color = const Color(0xFFFFAB91).withOpacity(0.7)
+      ..style = PaintingStyle.fill;
+    final pR = w * 0.032;
+    canvas.drawCircle(pawCenter, pR, pawMarkPaint);
+    canvas.drawCircle(Offset(pawCenter.dx - pR * 0.7, pawCenter.dy - pR * 0.9),
+        pR * 0.36, pawMarkPaint);
+    canvas.drawCircle(Offset(pawCenter.dx, pawCenter.dy - pR * 1.15),
+        pR * 0.36, pawMarkPaint);
+    canvas.drawCircle(Offset(pawCenter.dx + pR * 0.7, pawCenter.dy - pR * 0.9),
+        pR * 0.36, pawMarkPaint);
+
+    // 7. Kedi Renkleri
     final (furColor, stripeColor, eyeColor) = switch (cat.id) {
       'pamuk' => (
           const Color(0xFFFFFFFF),
@@ -100,66 +202,71 @@ class CatArtPainter extends CustomPainter {
         ),
     };
 
-    final headRadius = w * 0.26;
-    final headCenter = Offset(w / 2, h * 0.52);
-
-    // Kulaklar (Sol & Sağ Üçgen)
-    final earPaint = Paint()
+    final furPaint = Paint()
       ..color = furColor
       ..style = PaintingStyle.fill;
+    final outlinePaint = Paint()
+      ..color = const Color(0xFF4A403A).withOpacity(0.20)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.8, w * 0.007);
+
+    // 8. Kedi Gövdesi (Alt-Orta)
+    final bodyRect =
+        Rect.fromLTWH(w * 0.20, h * 0.54, w * 0.60, h * 0.36);
+    canvas.drawOval(bodyRect, furPaint);
+    canvas.drawOval(bodyRect, outlinePaint);
+
+    // 9. Kedi Başı ve Kulaklar
+    final headRadius = w * 0.30;
+    final headCenter = Offset(w * 0.50, h * 0.45);
+
+    // Kulaklar
     final innerEarPaint = Paint()
       ..color = const Color(0xFFFFAB91).withOpacity(0.85)
       ..style = PaintingStyle.fill;
 
     // Sol kulak
     final leftEar = Path()
-      ..moveTo(headCenter.dx - headRadius * 0.82, headCenter.dy - headRadius * 0.2)
+      ..moveTo(headCenter.dx - headRadius * 0.85, headCenter.dy - headRadius * 0.20)
       ..lineTo(headCenter.dx - headRadius * 0.85, headCenter.dy - headRadius * 1.15)
-      ..lineTo(headCenter.dx - headRadius * 0.2, headCenter.dy - headRadius * 0.75)
+      ..lineTo(headCenter.dx - headRadius * 0.20, headCenter.dy - headRadius * 0.75)
       ..close();
-    canvas.drawPath(leftEar, earPaint);
+    canvas.drawPath(leftEar, furPaint);
+    canvas.drawPath(leftEar, outlinePaint);
 
     final leftInnerEar = Path()
-      ..moveTo(headCenter.dx - headRadius * 0.75, headCenter.dy - headRadius * 0.3)
-      ..lineTo(headCenter.dx - headRadius * 0.78, headCenter.dy - headRadius * 0.98)
-      ..lineTo(headCenter.dx - headRadius * 0.3, headCenter.dy - headRadius * 0.7)
+      ..moveTo(headCenter.dx - headRadius * 0.80, headCenter.dy - headRadius * 0.28)
+      ..lineTo(headCenter.dx - headRadius * 0.80, headCenter.dy - headRadius * 0.98)
+      ..lineTo(headCenter.dx - headRadius * 0.30, headCenter.dy - headRadius * 0.70)
       ..close();
     canvas.drawPath(leftInnerEar, innerEarPaint);
 
     // Sağ kulak
     final rightEar = Path()
-      ..moveTo(headCenter.dx + headRadius * 0.82, headCenter.dy - headRadius * 0.2)
+      ..moveTo(headCenter.dx + headRadius * 0.85, headCenter.dy - headRadius * 0.20)
       ..lineTo(headCenter.dx + headRadius * 0.85, headCenter.dy - headRadius * 1.15)
-      ..lineTo(headCenter.dx + headRadius * 0.2, headCenter.dy - headRadius * 0.75)
+      ..lineTo(headCenter.dx + headRadius * 0.20, headCenter.dy - headRadius * 0.75)
       ..close();
-    canvas.drawPath(rightEar, earPaint);
+    canvas.drawPath(rightEar, furPaint);
+    canvas.drawPath(rightEar, outlinePaint);
 
     final rightInnerEar = Path()
-      ..moveTo(headCenter.dx + headRadius * 0.75, headCenter.dy - headRadius * 0.3)
-      ..lineTo(headCenter.dx + headRadius * 0.78, headCenter.dy - headRadius * 0.98)
-      ..lineTo(headCenter.dx + headRadius * 0.3, headCenter.dy - headRadius * 0.7)
+      ..moveTo(headCenter.dx + headRadius * 0.80, headCenter.dy - headRadius * 0.28)
+      ..lineTo(headCenter.dx + headRadius * 0.80, headCenter.dy - headRadius * 0.98)
+      ..lineTo(headCenter.dx + headRadius * 0.30, headCenter.dy - headRadius * 0.70)
       ..close();
     canvas.drawPath(rightInnerEar, innerEarPaint);
 
-    // Baş (Oval / Daire)
-    final headPaint = Paint()
-      ..color = furColor
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(headCenter, headRadius, headPaint);
-
-    // Baş çevresi yumuşak çizgi
-    final outlinePaint = Paint()
-      ..color = const Color(0xFF4A403A).withOpacity(0.18)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+    // Baş Çemberi
+    canvas.drawCircle(headCenter, headRadius, furPaint);
     canvas.drawCircle(headCenter, headRadius, outlinePaint);
 
-    // Alın çizgileri (Tekir / Şeftali deseni)
-    if (cat.id == 'seftali' || cat.id == 'fistik') {
+    // Alın çizgileri (Tekir kediler için)
+    if (cat.id == 'seftali' || cat.id == 'fistik' || cat.id == 'limon') {
       final stripePaint = Paint()
         ..color = stripeColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.5
+        ..strokeWidth = math.max(2.5, w * 0.012)
         ..strokeCap = StrokeCap.round;
       canvas.drawLine(
         Offset(headCenter.dx, headCenter.dy - headRadius * 0.85),
@@ -168,34 +275,78 @@ class CatArtPainter extends CustomPainter {
       );
       canvas.drawLine(
         Offset(headCenter.dx - headRadius * 0.22, headCenter.dy - headRadius * 0.75),
-        Offset(headCenter.dx - headRadius * 0.15, headCenter.dy - headRadius * 0.5),
+        Offset(headCenter.dx - headRadius * 0.15, headCenter.dy - headRadius * 0.50),
         stripePaint,
       );
       canvas.drawLine(
         Offset(headCenter.dx + headRadius * 0.22, headCenter.dy - headRadius * 0.75),
-        Offset(headCenter.dx + headRadius * 0.15, headCenter.dy - headRadius * 0.5),
+        Offset(headCenter.dx + headRadius * 0.15, headCenter.dy - headRadius * 0.50),
         stripePaint,
       );
     }
 
-    // Gözler
-    final eyeRadius = headRadius * 0.18;
-    final leftEyeCenter = Offset(headCenter.dx - headRadius * 0.42, headCenter.dy - headRadius * 0.05);
-    final rightEyeCenter = Offset(headCenter.dx + headRadius * 0.42, headCenter.dy - headRadius * 0.05);
+    // 10. Tasma & Parlak Altın Çan (Göğüs hizası detayı)
+    final collarY = h * 0.73;
+    final collarRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+          center: Offset(headCenter.dx, collarY),
+          width: w * 0.26,
+          height: w * 0.038),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(collarRect, Paint()..color = const Color(0xFFFF7043));
+
+    final bellCenter = Offset(headCenter.dx, collarY + w * 0.024);
+    final bellRadius = w * 0.038;
+    final bellPaint = Paint()..color = const Color(0xFFFFD54F);
+    final bellBorder = Paint()
+      ..color = const Color(0xFFF57F17)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawCircle(bellCenter, bellRadius, bellPaint);
+    canvas.drawCircle(bellCenter, bellRadius, bellBorder);
+    // Çan yarığı
+    canvas.drawLine(
+      Offset(bellCenter.dx - bellRadius * 0.6, bellCenter.dy + bellRadius * 0.3),
+      Offset(bellCenter.dx + bellRadius * 0.6, bellCenter.dy + bellRadius * 0.3),
+      bellBorder,
+    );
+    canvas.drawCircle(Offset(bellCenter.dx, bellCenter.dy + bellRadius * 0.3),
+        1.6, Paint()..color = const Color(0xFFF57F17));
+
+    // 11. Masaya Dayalı Sevimli Ön Patiler
+    final pawRadius = w * 0.065;
+    final leftPawCenter = Offset(w * 0.34, tableTop + pawRadius * 0.15);
+    final rightPawCenter = Offset(w * 0.66, tableTop + pawRadius * 0.15);
+    canvas.drawCircle(leftPawCenter, pawRadius, furPaint);
+    canvas.drawCircle(leftPawCenter, pawRadius, outlinePaint);
+    canvas.drawCircle(rightPawCenter, pawRadius, furPaint);
+    canvas.drawCircle(rightPawCenter, pawRadius, outlinePaint);
+
+    // Pati iç pembe pedleri
+    canvas.drawCircle(leftPawCenter, pawRadius * 0.45, innerEarPaint);
+    canvas.drawCircle(rightPawCenter, pawRadius * 0.45, innerEarPaint);
+
+    // 12. Gözler
+    final eyeRadius = headRadius * 0.19;
+    final leftEyeCenter =
+        Offset(headCenter.dx - headRadius * 0.42, headCenter.dy - headRadius * 0.05);
+    final rightEyeCenter =
+        Offset(headCenter.dx + headRadius * 0.42, headCenter.dy - headRadius * 0.05);
 
     if (cat.id == 'bulut') {
       // Uykucu kapalı mutlu gözler (˘ω˘)
       final sleepEyePaint = Paint()
         ..color = const Color(0xFF37474F)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.5
+        ..strokeWidth = math.max(2.8, w * 0.011)
         ..strokeCap = StrokeCap.round;
       final arcRectL = Rect.fromCircle(center: leftEyeCenter, radius: eyeRadius);
       final arcRectR = Rect.fromCircle(center: rightEyeCenter, radius: eyeRadius);
       canvas.drawArc(arcRectL, math.pi * 0.15, math.pi * 0.7, false, sleepEyePaint);
       canvas.drawArc(arcRectR, math.pi * 0.15, math.pi * 0.7, false, sleepEyePaint);
     } else {
-      // Büyük ışıltılı gözler
+      // Büyük ışıldayan gözler
       final eyePaint = Paint()
         ..color = eyeColor
         ..style = PaintingStyle.fill;
@@ -207,110 +358,136 @@ class CatArtPainter extends CustomPainter {
       canvas.drawCircle(leftEyeCenter, eyeRadius * 0.65, pupilPaint);
       canvas.drawCircle(rightEyeCenter, eyeRadius * 0.65, pupilPaint);
 
-      // Göz ışıltısı (Beyaz parıltı)
+      // Çift beyaz ışık yansıması
       final shinePaint = Paint()..color = Colors.white;
       canvas.drawCircle(
-        Offset(leftEyeCenter.dx - eyeRadius * 0.28, leftEyeCenter.dy - eyeRadius * 0.28),
+        Offset(leftEyeCenter.dx - eyeRadius * 0.32,
+            leftEyeCenter.dy - eyeRadius * 0.32),
         eyeRadius * 0.32,
         shinePaint,
       );
       canvas.drawCircle(
-        Offset(rightEyeCenter.dx - eyeRadius * 0.28, rightEyeCenter.dy - eyeRadius * 0.28),
+        Offset(rightEyeCenter.dx - eyeRadius * 0.32,
+            rightEyeCenter.dy - eyeRadius * 0.32),
         eyeRadius * 0.32,
+        shinePaint,
+      );
+      canvas.drawCircle(
+        Offset(leftEyeCenter.dx + eyeRadius * 0.28,
+            leftEyeCenter.dy + eyeRadius * 0.25),
+        eyeRadius * 0.16,
+        shinePaint,
+      );
+      canvas.drawCircle(
+        Offset(rightEyeCenter.dx + eyeRadius * 0.28,
+            rightEyeCenter.dy + eyeRadius * 0.25),
+        eyeRadius * 0.16,
         shinePaint,
       );
     }
 
-    // Yanaklar (Pembe allık)
-    final blushPaint = Paint()
-      ..color = const Color(0xFFFF8A80).withOpacity(0.45)
-      ..style = PaintingStyle.fill;
+    // 13. Yanaklar (Pembe tatlı allık)
+    final blushRadius = headRadius * 0.18;
     canvas.drawCircle(
-      Offset(headCenter.dx - headRadius * 0.58, headCenter.dy + headRadius * 0.22),
-      headRadius * 0.16,
-      blushPaint,
+      Offset(headCenter.dx - headRadius * 0.60, headCenter.dy + headRadius * 0.22),
+      blushRadius,
+      innerEarPaint,
     );
     canvas.drawCircle(
-      Offset(headCenter.dx + headRadius * 0.58, headCenter.dy + headRadius * 0.22),
-      headRadius * 0.16,
-      blushPaint,
+      Offset(headCenter.dx + headRadius * 0.60, headCenter.dy + headRadius * 0.22),
+      blushRadius,
+      innerEarPaint,
     );
 
-    // Burun (Pembe üçgen)
-    final noseCenter = Offset(headCenter.dx, headCenter.dy + headRadius * 0.15);
+    // 14. Burun (Pembe üçgen)
+    final noseCenter = Offset(headCenter.dx, headCenter.dy + headRadius * 0.16);
+    final nW = math.max(6.0, w * 0.022);
+    final nH = math.max(4.0, w * 0.015);
     final nosePath = Path()
-      ..moveTo(noseCenter.dx - 6, noseCenter.dy - 3)
-      ..lineTo(noseCenter.dx + 6, noseCenter.dy - 3)
-      ..lineTo(noseCenter.dx, noseCenter.dy + 4)
+      ..moveTo(noseCenter.dx - nW, noseCenter.dy - nH * 0.6)
+      ..lineTo(noseCenter.dx + nW, noseCenter.dy - nH * 0.6)
+      ..lineTo(noseCenter.dx, noseCenter.dy + nH)
       ..close();
-    final nosePaint = Paint()
-      ..color = const Color(0xFFFF6E6E)
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(nosePath, nosePaint);
+    canvas.drawPath(
+        nosePath,
+        Paint()
+          ..color = const Color(0xFFFF6E6E)
+          ..style = PaintingStyle.fill);
 
-    // Ağız (Kedi gülüşü: w)
+    // 15. Ağız (Kedi gülüşü: w)
     final mouthPaint = Paint()
       ..color = const Color(0xFF4A403A)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
+      ..strokeWidth = math.max(2.0, w * 0.008)
       ..strokeCap = StrokeCap.round;
 
+    final mW = math.max(10.0, w * 0.038);
     final mouthPath = Path()
-      ..moveTo(noseCenter.dx - 12, noseCenter.dy + 8)
-      ..quadraticBezierTo(noseCenter.dx - 6, noseCenter.dy + 15, noseCenter.dx, noseCenter.dy + 5)
-      ..quadraticBezierTo(noseCenter.dx + 6, noseCenter.dy + 15, noseCenter.dx + 12, noseCenter.dy + 8);
+      ..moveTo(noseCenter.dx - mW * 2, noseCenter.dy + nH * 1.5)
+      ..quadraticBezierTo(noseCenter.dx - mW, noseCenter.dy + nH * 3.0,
+          noseCenter.dx, noseCenter.dy + nH * 1.2)
+      ..quadraticBezierTo(noseCenter.dx + mW, noseCenter.dy + nH * 3.0,
+          noseCenter.dx + mW * 2, noseCenter.dy + nH * 1.5);
     canvas.drawPath(mouthPath, mouthPaint);
 
-    // Bıyıklar (3 sol, 3 sağ)
+    // 16. Bıyıklar (Sol & Sağ 3'er adet)
     final whiskerPaint = Paint()
       ..color = const Color(0xFF5D4037).withOpacity(0.55)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
+      ..strokeWidth = math.max(1.5, w * 0.006)
       ..strokeCap = StrokeCap.round;
 
-    // Sol bıyıklar
-    canvas.drawLine(
-      Offset(headCenter.dx - headRadius * 0.45, headCenter.dy + headRadius * 0.18),
-      Offset(headCenter.dx - headRadius * 1.05, headCenter.dy + headRadius * 0.08),
-      whiskerPaint,
-    );
-    canvas.drawLine(
-      Offset(headCenter.dx - headRadius * 0.45, headCenter.dy + headRadius * 0.28),
-      Offset(headCenter.dx - headRadius * 1.05, headCenter.dy + headRadius * 0.32),
-      whiskerPaint,
-    );
+    final whiskerOffsets = [
+      -headRadius * 0.06,
+      headRadius * 0.06,
+      headRadius * 0.18
+    ];
+    for (final dy in whiskerOffsets) {
+      // Sol bıyıklar
+      canvas.drawLine(
+        Offset(headCenter.dx - headRadius * 0.65, headCenter.dy + headRadius * 0.20 + dy),
+        Offset(headCenter.dx - headRadius * 1.18, headCenter.dy + headRadius * 0.15 + dy * 1.4),
+        whiskerPaint,
+      );
+      // Sağ bıyıklar
+      canvas.drawLine(
+        Offset(headCenter.dx + headRadius * 0.65, headCenter.dy + headRadius * 0.20 + dy),
+        Offset(headCenter.dx + headRadius * 1.18, headCenter.dy + headRadius * 0.15 + dy * 1.4),
+        whiskerPaint,
+      );
+    }
+  }
 
-    // Sağ bıyıklar
-    canvas.drawLine(
-      Offset(headCenter.dx + headRadius * 0.45, headCenter.dy + headRadius * 0.18),
-      Offset(headCenter.dx + headRadius * 1.05, headCenter.dy + headRadius * 0.08),
-      whiskerPaint,
+  void _drawHeart(Canvas canvas, Offset center, double size, Paint paint) {
+    final path = Path();
+    path.moveTo(center.dx, center.dy + size * 0.7);
+    path.cubicTo(
+      center.dx - size * 1.2,
+      center.dy - size * 0.3,
+      center.dx - size * 0.6,
+      center.dy - size * 1.1,
+      center.dx,
+      center.dy - size * 0.3,
     );
-    canvas.drawLine(
-      Offset(headCenter.dx + headRadius * 0.45, headCenter.dy + headRadius * 0.28),
-      Offset(headCenter.dx + headRadius * 1.05, headCenter.dy + headRadius * 0.32),
-      whiskerPaint,
+    path.cubicTo(
+      center.dx + size * 0.6,
+      center.dy - size * 1.1,
+      center.dx + size * 1.2,
+      center.dy - size * 0.3,
+      center.dx,
+      center.dy + size * 0.7,
     );
+    canvas.drawPath(path, paint);
+  }
 
-    // Alt Patiler (Masanın üzerinden bakan iki tatlı pati)
-    final pawRadius = w * 0.075;
-    final pawPaint = Paint()
-      ..color = furColor
-      ..style = PaintingStyle.fill;
-
-    final leftPaw = Offset(w * 0.35, h * 0.88);
-    final rightPaw = Offset(w * 0.65, h * 0.88);
-    canvas.drawCircle(leftPaw, pawRadius, pawPaint);
-    canvas.drawCircle(rightPaw, pawRadius, pawPaint);
-    canvas.drawCircle(leftPaw, pawRadius, outlinePaint);
-    canvas.drawCircle(rightPaw, pawRadius, outlinePaint);
-
-    // Pati çizgileri
-    final padPaint = Paint()
-      ..color = const Color(0xFFFFAB91).withOpacity(0.7)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(leftPaw, pawRadius * 0.45, padPaint);
-    canvas.drawCircle(rightPaw, pawRadius * 0.45, padPaint);
+  void _drawSparkle(Canvas canvas, Offset center, double size, Paint paint) {
+    final path = Path();
+    path.moveTo(center.dx, center.dy - size);
+    path.quadraticBezierTo(center.dx, center.dy, center.dx + size, center.dy);
+    path.quadraticBezierTo(center.dx, center.dy, center.dx, center.dy + size);
+    path.quadraticBezierTo(center.dx, center.dy, center.dx - size, center.dy);
+    path.quadraticBezierTo(center.dx, center.dy, center.dx, center.dy - size);
+    canvas.drawPath(path, paint);
   }
 
   @override

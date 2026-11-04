@@ -9,6 +9,8 @@ import 'puzzle_piece_widget.dart';
 
 /// Puzzle tahtası: n x n yuvalardan oluşur. Sürükle-bırak (DragTarget) ve
 /// dokun-yerleştir mekanizmasını destekler.
+/// Parçalar arasında sıfır piksel boşluk bulunur; yerleşen parçalar tahtadaki
+/// hayalet görsel ile piksel piksel kusursuz örtüşür.
 class PuzzleBoard extends StatelessWidget {
   const PuzzleBoard({
     super.key,
@@ -16,7 +18,7 @@ class PuzzleBoard extends StatelessWidget {
     required this.image,
     required this.placedSlots,
     this.placedByPartnerSlots = const {},
-    this.showGhostHint = false,
+    this.showGhostHint = true,
     this.isCompleted = false,
     required this.onSlotDrop,
     this.onSlotTap,
@@ -57,27 +59,26 @@ class PuzzleBoard extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableSize = constraints.maxWidth;
-        final boardPadding = 10.0;
-        final spacing = 4.0;
+        const boardPadding = 8.0;
         final innerSize = availableSize - (boardPadding * 2);
-        final slotSize = (innerSize - ((grid - 1) * spacing)) / grid;
+        final slotSize = innerSize / grid;
 
         return AspectRatio(
           aspectRatio: 1,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 500),
-            padding: EdgeInsets.all(boardPadding),
+            padding: const EdgeInsets.all(boardPadding),
             decoration: BoxDecoration(
               color: isCompleted
-                  ? Colors.white.withOpacity(0.9)
+                  ? Colors.white.withOpacity(0.95)
                   : PokiColors.surfaceOf(context),
               borderRadius: PokiRadius.all,
               boxShadow: isCompleted
                   ? [
                       BoxShadow(
-                        color: const Color(0xFFFFB74D).withOpacity(0.45),
-                        blurRadius: 24,
-                        spreadRadius: 4,
+                        color: const Color(0xFFFFB74D).withOpacity(0.50),
+                        blurRadius: 28,
+                        spreadRadius: 6,
                       ),
                     ]
                   : PokiShadows.softOf(context),
@@ -86,22 +87,24 @@ class PuzzleBoard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               child: Stack(
                 children: [
-                  // İpucu (Hayalet Resim) veya Oyun Sonu Bütünleşmesi
-                  if (showGhostHint || isCompleted)
-                    Positioned.fill(
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 600),
-                        opacity: isCompleted ? 1.0 : 0.22,
-                        child: _buildFullGhostArt(innerSize),
-                      ),
+                  // İpucu (Hayalet Resim): Oyun oynanırken tahtada hafif bir rehber olarak belirir,
+                  // böylece oyuncu ne yaptığını ve hangi parçanın nereye geldiğini net görür.
+                  Positioned.fill(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 400),
+                      opacity: isCompleted
+                          ? 1.0
+                          : (showGhostHint ? 0.36 : 0.14),
+                      child: _buildFullGhostArt(innerSize),
                     ),
+                  ),
 
-                  // Parça Yuvaları
+                  // Parça Yuvaları (Sıfır piksel aralık ile kesintisiz bütünleşme)
                   GridView.count(
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisCount: grid,
-                    mainAxisSpacing: spacing,
-                    crossAxisSpacing: spacing,
+                    mainAxisSpacing: 0,
+                    crossAxisSpacing: 0,
                     children: [
                       for (var i = 0; i < grid * grid; i++)
                         _buildSlot(
@@ -169,18 +172,17 @@ class PuzzleBoard extends StatelessWidget {
               color: isHovered
                   ? PokiColors.primaryButton.withOpacity(0.35)
                   : (isTargetMatch
-                      ? const Color(0xFFFFE082).withOpacity(0.3)
+                      ? const Color(0x40FFA726)
                       : (showGhostHint
                           ? Colors.transparent
-                          : PokiColors.backgroundOf(context))),
-              borderRadius: BorderRadius.circular(size * 0.14),
+                          : PokiColors.backgroundOf(context).withOpacity(0.4))),
               border: Border.all(
                 color: isHovered
                     ? PokiColors.primaryButton
                     : (isTargetMatch
-                        ? const Color(0xFFFFB74D)
-                        : PokiColors.textOf(context).withOpacity(0.12)),
-                width: isHovered || isTargetMatch ? 2.0 : 1.2,
+                        ? const Color(0xFFFF9800)
+                        : Colors.white.withOpacity(0.28)),
+                width: isHovered || isTargetMatch ? 2.0 : 0.5,
               ),
             ),
             child: Center(
@@ -189,12 +191,11 @@ class PuzzleBoard extends StatelessWidget {
                       size: 20, color: PokiColors.primaryButton)
                   : (isTargetMatch
                       ? const Icon(Icons.pets_rounded,
-                          size: 16, color: Color(0xFFFFB74D))
+                          size: 18, color: Color(0xFFFF9800))
                       : Text(
                           '${slotIndex + 1}',
                           style: textTheme.labelSmall?.copyWith(
-                            color: PokiColors.textOf(context)
-                                .withOpacity(showGhostHint ? 0.35 : 0.18),
+                            color: Colors.white.withOpacity(0.45),
                             fontWeight: FontWeight.bold,
                           ),
                         )),

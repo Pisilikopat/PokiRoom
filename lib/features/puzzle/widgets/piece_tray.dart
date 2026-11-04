@@ -45,9 +45,9 @@ class PieceTray extends StatelessWidget {
               ),
               if (selectedPiece != null)
                 Text(
-                  'Yuvasına dokun ➔',
+                  'Yuvasına veya tekrar dokun ➔',
                   style: textTheme.labelSmall?.copyWith(
-                    color: PokiColors.primaryButton,
+                    color: const Color(0xFFFF9800),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
