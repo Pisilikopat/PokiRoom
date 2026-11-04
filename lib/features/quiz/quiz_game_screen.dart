@@ -232,67 +232,91 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
       final rec = eng.lastRecord;
       if (rec == null) return OptionVisual.idle;
 
-      final isMePick = rec.myPick == i;
-      final isPartnerPick = rec.partnerPick == i;
+      final myPick = rec.myPick;
+      final partnerPick = rec.partnerPick;
 
       if (eng.mode == QuizMode.readMyMind) {
-        final isActual = eng.chooser == QuizSide.me ? isMePick : isPartnerPick;
-        final isGuess = eng.chooser == QuizSide.me ? isPartnerPick : isMePick;
+        final chooserPick = eng.chooser == QuizSide.me ? myPick : partnerPick;
+        final guesserPick = eng.chooser == QuizSide.me ? partnerPick : myPick;
 
-        if (isActual && isGuess) return OptionVisual.bothPicked;
-        if (isActual) return OptionVisual.correct;
-        if (isGuess) return OptionVisual.wrong;
+        if (i == chooserPick) return OptionVisual.correct;
+        if (i == guesserPick && !rec.matched) return OptionVisual.wrong;
+        return OptionVisual.idle;
       } else {
-        if (isMePick && isPartnerPick) return OptionVisual.bothPicked;
-        if (isMePick) return OptionVisual.iPicked;
-        if (isPartnerPick) return OptionVisual.partnerPicked;
+        if (rec.matched) {
+          if (i == myPick) return OptionVisual.correct;
+        } else {
+          if (i == myPick) return OptionVisual.wrong;
+          if (i == partnerPick) return OptionVisual.correct;
+        }
+        return OptionVisual.idle;
       }
+    }
 
+    if (eng.hasLocked(QuizSide.partner) && !eng.hasLocked(QuizSide.me)) {
+      if (mySelection == i) return OptionVisual.selected;
+      return OptionVisual.fogged;
+    }
+
+    if (eng.hasLocked(QuizSide.me)) {
+      if (i == mySelection) return OptionVisual.lockedMine;
       return OptionVisual.idle;
     }
 
-    if (mySelection == i) {
-      return eng.hasLocked(QuizSide.me)
-          ? OptionVisual.locked
-          : OptionVisual.selected;
-    }
-
-    return OptionVisual.idle;
+    return mySelection == i ? OptionVisual.selected : OptionVisual.idle;
   }
 
   String get _roleBanner {
-    final eng = _controller.engine;
-    if (eng.mode == QuizMode.readMyMind) {
-      if (eng.phase == QuizPhase.choosing) {
-        return eng.chooser == QuizSide.me
-            ? 'Senin sıran: Gerçeği seç'
-            : 'Partnerin gerçeğini seçiyor...';
-      }
-      if (eng.phase == QuizPhase.guessing) {
-        return eng.chooser == QuizSide.me
-            ? 'Partnerin tahmin ediyor...'
-            : 'Senin sıran: Tahmin et';
-      }
-    }
-    return 'İkiniz de size uyan şıkkı seçin';
-  }
-
-  Widget? get _bottomPanel {
     final eng = _controller.engine;
     final phase = eng.phase;
 
     if (phase == QuizPhase.revealed) {
       final rec = eng.lastRecord;
-      if (rec == null) return null;
-      return ReactionCat(
-        matched: rec.matched,
-        celebration: eng.mode == QuizMode.soulmates
-            ? 'Ruh İkizi!'
-            : 'Doğru Tahmin!',
-        consolation: eng.mode == QuizMode.soulmates
-            ? 'Zıt Kutuplar...'
-            : 'Tüh, Bilemedin!',
-      );
+      if (rec == null) return '';
+      if (eng.mode == QuizMode.readMyMind) {
+        return rec.matched
+            ? '✨ Doğru tahmin! +10 Pati Puanı'
+            : '😿 Yanlış tahmin...';
+      } else {
+        return rec.matched ? '💖 Ruh İkizisiniz!' : '🐱 Zıt kutuplar...';
+      }
+    }
+
+    if (phase == QuizPhase.finished) return '🎉 Oyun bitti!';
+
+    if (eng.mode == QuizMode.readMyMind) {
+      if (phase == QuizPhase.choosing) {
+        return eng.chooser == QuizSide.me
+            ? 'Sıra sende: gerçeğini seç 🤫 (partner tahmin edecek)'
+            : 'Partner gerçeğini seçiyor... ⏳';
+      }
+      if (phase == QuizPhase.guessing) {
+        return eng.guesser == QuizSide.me
+            ? 'Partnerin ne seçtiğini tahmin et! 🔮'
+            : 'Sen seçtin, partner tahmin ediyor... ⏳';
+      }
+    }
+
+    if (eng.hasLocked(QuizSide.me)) {
+      return 'Seçimin kilitlendi 🔒 Partner bekleniyor...';
+    }
+    return 'İkiniz de seçin, sonra buğu kalkacak 🌫️';
+  }
+
+  Widget? get _bottomPanel {
+    final phase = _controller.engine.phase;
+    final rec = _controller.engine.lastRecord;
+
+    if (phase == QuizPhase.revealed && rec != null) {
+      if (_controller.engine.mode == QuizMode.readMyMind) {
+        return ReactionCat(
+          reaction: rec.matched ? CatReaction.correct : CatReaction.wrong,
+        );
+      } else {
+        return ReactionCat(
+          reaction: rec.matched ? CatReaction.soulmates : CatReaction.opposites,
+        );
+      }
     }
 
     if (_controller.partnerThinking) return const ThinkingCat();
