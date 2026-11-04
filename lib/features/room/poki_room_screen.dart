@@ -1,5 +1,6 @@
 // lib/features/room/poki_room_screen.dart
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +18,7 @@ import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/room_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/voice_repository.dart';
+import 'services/call_signaling_service.dart';
 import 'services/voice_recorder_service.dart';
 import '../../data/services/game_lobby_service.dart';
 import '../../data/services/room_presence.dart';
@@ -30,18 +32,20 @@ import '../quiz/quiz_lobby_screen.dart';
 import '../workshop/doodle_studio_screen.dart';
 import '../workshop/live_doodle_screen.dart';
 import '../workshop/widgets/sticker_picker_sheet.dart';
+import 'screens/voice_call_screen.dart';
 import 'widgets/chat_search_bar.dart';
 import 'widgets/foggy_compose_sheet.dart';
 import 'widgets/hearts_burst.dart';
+import 'widgets/incoming_call_sheet.dart';
 import 'widgets/message_bubble.dart';
 import 'widgets/message_input.dart';
+import 'widgets/mini_call_overlay.dart';
 import 'widgets/poke_toast.dart';
 import 'widgets/poki_poke_menu.dart';
 import 'widgets/room_header.dart';
 import 'widgets/typing_paws.dart';
 
-/// 1'e 1 kilitli PokiRoom ana sohbet ekranı.
-/// Cebi kapatınca users.current_room_id null olur; AppGate otomatik Boş Cep'e döner.
+/// 1'e 1 kilitli PokiRoom ana sohbet ekrani.
 class PokiRoomScreen extends StatefulWidget {
   const PokiRoomScreen({super.key, required this.roomId});
 
@@ -102,6 +106,12 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   PokiMessage? _replyingTo;
   final FocusNode _inputFocusNode = FocusNode();
 
+  // ───────────── Sesli Arama ─────────────
+  CallSignalingService? _callSignaling;
+  StreamSubscription<IncomingCallEvent>? _incomingCallSub;
+  StreamSubscription<CallEndReason>? _callEndedSub;
+  bool _callScreenOpen = false;
+
   @override
   void initState() {
     super.initState();
@@ -127,6 +137,9 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     for (final s in _subs) {
       s.cancel();
     }
+    _incomingCallSub?.cancel();
+    _callEndedSub?.cancel();
+    _callSignaling?.dispose();
     _presence?.removeListener(_onPresenceChanged);
     _presence?.setActivity(PokiActivity.inApp);
     super.dispose();
@@ -153,11 +166,23 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       presence.join();
       presence.setActivity(PokiActivity.chatting);
 
+      // Sesli arama servisini baslat
+      final signaling = CallSignalingService(
+        roomId: widget.roomId,
+        myId: _myId,
+        partnerId: partnerId,
+      );
+      signaling.init();
+
+      _incomingCallSub = signaling.onIncomingCall.listen(_onIncomingCall);
+      _callEndedSub = signaling.onCallEnded.listen(_onCallEnded);
+
       setState(() {
         _room = room;
         _me = me;
         _partner = partner;
         _presence = presence;
+        _callSignaling = signaling;
         _loading = false;
       });
 
@@ -177,7 +202,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Oda yüklenemedi, tekrar dener misin?';
+          _error = 'Oda yuklenemedi, tekrar dener misin?';
         });
       }
     }
@@ -364,7 +389,6 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
 
   void _maybeMarkRead() {
     if (!_foreground) return;
-    // Buğulu mesajlar sadece silinince okunmuş sayılır.
     final hasUnread = _list.any(
       (m) => m.senderId != _myId && !m.isRead && m.type != 'foggy',
     );
@@ -412,13 +436,13 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   void _onPoke(PokeEvent event) {
     HapticFeedback.mediumImpact();
     setState(() => _burstId = ++_burstCounter);
-    _showToast('Pıt! 🐾 ${event.nickname} şu an seni düşünüyor');
+    _showToast('Put! ${event.nickname} su an seni dusunuyor');
   }
 
   void _onDoodleInvite(PokeEvent event) {
     HapticFeedback.mediumImpact();
     _showToast(
-      '🎨 ${event.nickname} birlikte çizmeye çağırıyor · Katıl',
+      '${event.nickname} birlikte cizmeye cagiriyor - Katil',
       duration: const Duration(seconds: 12),
       onTap: () {
         _hideToast();
@@ -430,7 +454,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   void _onQuizInvite(QuizInvite invite) {
     HapticFeedback.mediumImpact();
     _showToast(
-      '🎮 ${invite.hostNickname} seni Poki Quiz\'e çağırıyor 👉 Katıl',
+      '${invite.hostNickname} seni Poki Quiz\'e cagiriyor - Katil',
       duration: const Duration(seconds: 15),
       onTap: () {
         _hideToast();
@@ -452,7 +476,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   void _onPuzzleInvite(PuzzleInvite invite) {
     HapticFeedback.mediumImpact();
     _showToast(
-      '🧩 ${invite.hostNickname} seni Poki Puzzle\'a çağırıyor 👉 Katıl',
+      '${invite.hostNickname} seni Poki Puzzle\'a cagiriyor - Katil',
       duration: const Duration(seconds: 15),
       onTap: () {
         _hideToast();
@@ -569,7 +593,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     final now = DateTime.now();
     final last = _lastPokeSent;
     if (last != null && now.difference(last) < _pokeCooldown) {
-      _snack('Biraz yavaş, kedi nefes alsın 🐱');
+      _snack('Biraz yavas, kedi nefes alsin');
       return;
     }
     _lastPokeSent = now;
@@ -579,14 +603,14 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
         roomId: widget.roomId,
         type: NotificationType.poke,
       );
-      final partnerName = _partner?.nickname ?? 'Karşı taraf';
+      final partnerName = _partner?.nickname ?? 'Karsi taraf';
       _snack(
         (_presence?.partnerOnline ?? false)
-            ? 'Poki-Poke gönderildi 🐾'
-            : '$partnerName şu an uyuyor, Poki-Poke\'u görmeyebilir 💤',
+            ? 'Poki-Poke gonderildi'
+            : '$partnerName su an uyuyor, Poki-Poke\'u gormeyebilir',
       );
     } catch (_) {
-      _snack('Poki-Poke gönderilemedi, tekrar dener misin?');
+      _snack('Poki-Poke gonderilemedi, tekrar dener misin?');
     }
   }
 
@@ -655,7 +679,6 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
 
   Future<void> _onMessageLongPress(PokiMessage m, bool mine) async {
     final pinnable = m.type == 'text' || m.type == 'sticker' || m.type == 'foggy';
-    // Henüz açılmamış buğulu mesaj iğnelenemez.
     final hidden = m.type == 'foggy' && !mine && !m.isRead;
     if (!pinnable || hidden) return;
 
@@ -670,7 +693,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
           padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
           child: ListTile(
             leading: const Icon(Icons.push_pin_rounded),
-            title: const Text('Anılara iğnele'),
+            title: const Text('Anilara isnele'),
             onTap: () => Navigator.of(ctx).pop(true),
           ),
         ),
@@ -679,7 +702,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     if (pin != true) return;
     try {
       await _memories.addFromMessage(m);
-      _snack('Anılara iğnelendi 📌');
+      _snack('Anilara isnelendi');
     } on PokiException catch (e) {
       _snack(e.message);
     }
@@ -687,7 +710,6 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
 
   // ------------------------------------------------------------- mesajlar
 
-  /// Buğulu mesaj silinince: okundu işaretle + gönderene haber ver.
   Future<void> _onFoggyRevealed(String messageId) async {
     try {
       await _messages.markMessageRead(messageId);
@@ -709,8 +731,8 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     final senderName =
         m.senderId == _myId ? 'Sen' : (_partner?.nickname ?? 'Partnerin');
     String snippet = m.cleanContent;
-    if (m.type == 'sticker') snippet = '🎨 Çıkartma';
-    if (m.type == 'foggy') snippet = '🌫️ Buğulu mesaj';
+    if (m.type == 'sticker') snippet = 'Sticker';
+    if (m.type == 'foggy') snippet = 'Bugulu mesaj';
     if (snippet.length > 50) snippet = '${snippet.substring(0, 47)}...';
     return PokiReplyInfo(
       messageId: m.id,
@@ -747,37 +769,119 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     } on PokiException catch (e) {
       _snack(e.message);
     } catch (_) {
-      _snack('Sesli mesaj gönderilemedi 🐱');
+      _snack('Sesli mesaj gonderilemedi');
     }
   }
 
+  // ─────────────────────── SESLI ARAMA ───────────────────────
+
+  /// Sesli arama başlat (arama düğmesine basıldığında)
+  Future<void> _startVoiceCall() async {
+    final signaling = _callSignaling;
+    final partner = _partner;
+    if (signaling == null || partner == null) return;
+
+    if (signaling.state != CallState.idle) {
+      _snack('Zaten bir arama var');
+      return;
+    }
+
+    HapticFeedback.mediumImpact();
+    await signaling.startCall();
+
+    if (!mounted) return;
+    _openCallScreen(signaling, partner);
+  }
+
+  /// Gelen arama eventi
+  void _onIncomingCall(IncomingCallEvent event) {
+    final signaling = _callSignaling;
+    final partner = _partner;
+    if (signaling == null || partner == null || !mounted) return;
+
+    HapticFeedback.heavyImpact();
+
+    IncomingCallSheet.show(
+      context,
+      caller: partner,
+      onAccept: () {
+        Navigator.of(context).pop(); // Sheet'i kapat
+        signaling.acceptCall();
+        _openCallScreen(signaling, partner);
+      },
+      onReject: () {
+        Navigator.of(context).pop(); // Sheet'i kapat
+        signaling.rejectCall();
+      },
+    );
+  }
+
+  /// Arama bitti eventi
+  void _onCallEnded(CallEndReason reason) {
+    if (!mounted) return;
+    setState(() {
+      _callScreenOpen = false;
+    });
+
+    switch (reason) {
+      case CallEndReason.rejected:
+        _showToast('Arama reddedildi');
+      case CallEndReason.noAnswer:
+        _showToast('Cevap yok');
+      case CallEndReason.connectionLost:
+        _showToast('Baglanti kesildi');
+      case CallEndReason.ended:
+        break;
+    }
+  }
+
+  /// VoiceCallScreen'i ac
+  void _openCallScreen(CallSignalingService signaling, PokiUser partner) {
+    setState(() => _callScreenOpen = true);
+    Navigator.of(context)
+        .push(
+      MaterialPageRoute<void>(
+        builder: (_) => VoiceCallScreen(
+          partner: partner,
+          signaling: signaling,
+          isCaller: signaling.isCaller,
+        ),
+      ),
+    )
+        .then((_) {
+      setState(() => _callScreenOpen = false);
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────
+
   Future<void> _confirmClosePocket() async {
-    final partnerName = _partner?.nickname ?? 'karşı taraf';
+    final partnerName = _partner?.nickname ?? 'karsi taraf';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Row(
           children: [
-            Text('🐾', style: TextStyle(fontSize: 24)),
+            Text('', style: TextStyle(fontSize: 24)),
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Cebi kapatalım mı?',
+                'Cebi kapatalim mi?',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ],
         ),
         content: Text(
-          '$partnerName ile olan mevcut odanız sonlandırılacak. Başka biriyle eşleşebilmek veya odayı sıfırlamak için bu gereklidir.\n\nEmin misin?',
+          '$partnerName ile olan mevcut odaniz sonlandirilacak. Baska biriyle eslesebilmek veya odayi sifirlamak icin bu gereklidir.\n\nEmin misin?',
           style: const TextStyle(fontSize: 14, height: 1.4),
         ),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç', style: TextStyle(color: Colors.grey)),
+            child: const Text('Vazgec', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -824,6 +928,9 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     }
 
     final presence = _presence;
+    final signaling = _callSignaling;
+    final partner = _partner;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -841,6 +948,9 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                 onSearchTap: _toggleSearch,
                 isSearching: _isSearchActive,
               ),
+              // Sesli arama butonu (header altında)
+              if (signaling != null && partner != null)
+                _buildCallBar(signaling, partner),
               if (_isSearchActive)
                 ChatSearchBar(
                   controller: _searchController,
@@ -856,7 +966,14 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                 ),
               Expanded(child: _buildMessages()),
               if (presence?.partnerTyping ?? false)
-                TypingPaws(name: _partner?.nickname ?? 'Karşı taraf'),
+                TypingPaws(name: _partner?.nickname ?? 'Karsi taraf'),
+              // Mini call overlay (arama aktifken chat'te)
+              if (signaling != null &&
+                  partner != null &&
+                  !_callScreenOpen &&
+                  signaling.state != CallState.idle &&
+                  signaling.state != CallState.ringing)
+                MiniCallOverlay(partner: partner, signaling: signaling),
               MessageInput(
                 onSend: _send,
                 onSendVoice: _sendVoice,
@@ -904,11 +1021,39 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     );
   }
 
+  /// Header altındaki arama başlatma çubuğu (sadece idle durumda)
+  Widget _buildCallBar(CallSignalingService signaling, PokiUser partner) {
+    return ListenableBuilder(
+      listenable: signaling,
+      builder: (context, _) {
+        if (signaling.state != CallState.idle) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: PokiColors.textOf(context).withOpacity(0.65),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            icon: const Icon(Icons.call_rounded, size: 18),
+            label: Text(
+              'Sesli Ara',
+              style: TextStyle(
+                fontSize: 13,
+                color: PokiColors.textOf(context).withOpacity(0.65),
+              ),
+            ),
+            onPressed: _startVoiceCall,
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildMessages() {
     if (_list.isEmpty) {
       return Center(
         child: Text(
-          'Cebin sessiz... ilk mesajı sen bırak 🐾',
+          'Cebin sessiz... ilk mesaji sen birak',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       );
@@ -919,7 +1064,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
 
     return ListView.builder(
       controller: _scrollController,
-      reverse: true, // liste en yeni mesaj ilk olacak şekilde geliyor
+      reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: totalCount,
       itemBuilder: (context, index) {
@@ -941,7 +1086,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '🐾 Eski anılar getiriliyor...',
+                    'Eski anilar getiriliyor...',
                     style: TextStyle(
                       fontSize: 12,
                       color: PokiColors.textOf(context).withOpacity(0.6),
@@ -958,10 +1103,9 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('🌱', style: TextStyle(fontSize: 16)),
                   const SizedBox(width: 6),
                   Text(
-                    'İkinizin ilk anısı burada başladı ✨',
+                    'Ikinizin ilk anisi burada basladi',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
