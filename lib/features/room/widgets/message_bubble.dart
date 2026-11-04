@@ -25,7 +25,7 @@ class MessageBubble extends StatelessWidget {
   /// Uzun basınca (örn. "Anılara iğnele").
   final VoidCallback? onLongPress;
 
-  /// Sağdan sola kaydırınca yanıtlama tetikleyicisi
+  /// Kaydırınca yanıtlama tetikleyicisi
   final void Function(PokiMessage message)? onSwipeReply;
 
   Widget _meta(BuildContext context) {
@@ -144,34 +144,259 @@ class MessageBubble extends StatelessWidget {
       }
     }
 
-    if (onSwipeReply == null) return content;
+    // Henüz açılmamış buğulu mesajlarda silme hareketine öncelik verilir
+    if (onSwipeReply == null ||
+        (message.type == 'foggy' && !isMine && !message.isRead)) {
+      return content;
+    }
 
-    // Sağdan sola kaydırarak yanıtlama (Swipe to Reply)
-    return Dismissible(
-      key: ValueKey('reply_dismiss_${message.id}'),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (direction) async {
-        HapticFeedback.lightImpact();
-        onSwipeReply!(message);
-        return false; // Mesaj silinmez, yay gibi geri yerine oturur
-      },
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: PokiColors.primaryButton.withOpacity(0.25),
-            shape: BoxShape.circle,
+    // Özelleştirilmiş Swipe to Reply sarmalayıcısı
+    return _SwipeToReplyWrapper(
+      key: ValueKey('reply_swipe_${message.id}'),
+      isMine: isMine,
+      onTrigger: () => onSwipeReply!(message),
+      child: content,
+    );
+  }
+}
+
+/// Mesajı kaydırarak yanıtlama sarmalayıcısı (Swipe to Reply).
+/// - Karşı tarafın mesajı: Soldan sağa kaydırılır.
+/// - Kendi mesajımız: Sağdan sola kaydırılır.
+/// - Düşük çekme eşiği (~46px) ile konforlu ve hızlı tetiklenir.
+/// - Eşik aşıldığında görsel geri bildirim (büyüme, parıltı, renk değişimi) ve haptik titreşim verir.
+class _SwipeToReplyWrapper extends StatefulWidget {
+  const _SwipeToReplyWrapper({
+    super.key,
+    required this.child,
+    required this.isMine,
+    required this.onTrigger,
+  });
+
+  final Widget child;
+  final bool isMine;
+  final VoidCallback onTrigger;
+
+  @override
+  State<_SwipeToReplyWrapper> createState() => _SwipeToReplyWrapperState();
+}
+
+class _SwipeToReplyWrapperState extends State<_SwipeToReplyWrapper>
+    with SingleTickerProviderStateMixin {
+  static const double _threshold = 46.0;
+  static const double _maxDrag = 74.0;
+
+  late final AnimationController _animController;
+  Animation<double>? _slideAnimation;
+  double _dragOffset = 0.0;
+  bool _triggered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _animController.addListener(() {
+      if (_slideAnimation != null) {
+        setState(() {
+          _dragOffset = _slideAnimation!.value;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  void _onHorizontalDragDown(DragDownDetails details) {
+    if (_animController.isAnimating) {
+      _animController.stop();
+    }
+  }
+
+  void _onHorizontalDragUpdate(DragUpdateDetails details) {
+    final delta = details.primaryDelta ?? 0.0;
+
+    if (!widget.isMine) {
+      // Karşı tarafın mesajı: Soldan sağa çekilir (delta > 0)
+      double next = _dragOffset + delta;
+      if (next < 0) next = 0;
+      if (next > _maxDrag) {
+        next = _maxDrag + (next - _maxDrag) * 0.2;
+      }
+      _dragOffset = next;
+    } else {
+      // Kendi mesajımız: Sağdan sola çekilir (delta < 0)
+      double next = _dragOffset + delta;
+      if (next > 0) next = 0;
+      if (next < -_maxDrag) {
+        next = -_maxDrag + (next - (-_maxDrag)) * 0.2;
+      }
+      _dragOffset = next;
+    }
+
+    final distance = _dragOffset.abs();
+    final reached = distance >= _threshold;
+    if (reached != _triggered) {
+      setState(() => _triggered = reached);
+      if (reached) {
+        HapticFeedback.mediumImpact();
+      } else {
+        HapticFeedback.selectionClick();
+      }
+    } else {
+      setState(() {});
+    }
+  }
+
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    if (_triggered) {
+      widget.onTrigger();
+      HapticFeedback.lightImpact();
+    }
+    _reset();
+  }
+
+  void _onHorizontalDragCancel() {
+    _reset();
+  }
+
+  void _reset() {
+    if (_dragOffset == 0.0) {
+      if (_triggered) setState(() => _triggered = false);
+      return;
+    }
+    _slideAnimation = Tween<double>(begin: _dragOffset, end: 0.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+    _animController.forward(from: 0.0).then((_) {
+      if (mounted) {
+        setState(() {
+          _dragOffset = 0.0;
+          _triggered = false;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final distance = _dragOffset.abs();
+    final progress = (distance / _threshold).clamp(0.0, 1.0);
+    final isVisible = distance > 0.5 || _animController.isAnimating;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragDown: _onHorizontalDragDown,
+      onHorizontalDragUpdate: _onHorizontalDragUpdate,
+      onHorizontalDragEnd: _onHorizontalDragEnd,
+      onHorizontalDragCancel: _onHorizontalDragCancel,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment:
+            widget.isMine ? Alignment.centerRight : Alignment.centerLeft,
+        children: [
+          if (isVisible)
+            Positioned.fill(
+              child: Align(
+                alignment: widget.isMine
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: widget.isMine ? 0 : 2.0 + progress * 6.0,
+                    right: widget.isMine ? 2.0 + progress * 6.0 : 0,
+                  ),
+                  child: _SwipeReplyIndicator(
+                    isMine: widget.isMine,
+                    progress: progress,
+                    triggered: _triggered,
+                  ),
+                ),
+              ),
+            ),
+          Transform.translate(
+            offset: Offset(_dragOffset, 0),
+            child: widget.child,
           ),
-          child: const Icon(
-            Icons.reply_rounded,
-            color: PokiColors.primaryButton,
-            size: 22,
+        ],
+      ),
+    );
+  }
+}
+
+/// Yanıtlama tetikleyici ikon göstergesi.
+/// Kullanıcı mesajı çektikçe belirir, eşiğe ulaştığında büyüyüp renkle parlayarak
+/// kullanıcıya yanıt modunun aktifleştiğini kesin olarak bildirir.
+class _SwipeReplyIndicator extends StatelessWidget {
+  const _SwipeReplyIndicator({
+    required this.isMine,
+    required this.progress,
+    required this.triggered,
+  });
+
+  final bool isMine;
+  final double progress;
+  final bool triggered;
+
+  @override
+  Widget build(BuildContext context) {
+    final opacity = (progress * 1.8).clamp(0.0, 1.0);
+    final scale = triggered ? 1.25 : (0.75 + 0.25 * progress);
+
+    return Opacity(
+      opacity: opacity,
+      child: AnimatedScale(
+        scale: scale,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.elasticOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: triggered
+                ? PokiColors.primaryButton
+                : PokiColors.primaryButton.withOpacity(0.18 + 0.15 * progress),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: triggered
+                  ? Colors.white
+                  : PokiColors.primaryButton
+                      .withOpacity(0.35 + 0.25 * progress),
+              width: triggered ? 2.0 : 1.2,
+            ),
+            boxShadow: triggered
+                ? [
+                    BoxShadow(
+                      color: PokiColors.primaryButton.withOpacity(0.5),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Transform.flip(
+              // Karşı tarafın mesajında soldan sağa çekildiğinde ok mesaj yönüne (sağa) bakar
+              // Kendi mesajımızda sağdan sola çekildiğinde ok mesaj yönüne (sola) bakar
+              flipX: !isMine,
+              child: Icon(
+                Icons.reply_rounded,
+                size: 19,
+                color: triggered
+                    ? Colors.white
+                    : PokiColors.primaryButton.withOpacity(0.9),
+              ),
+            ),
           ),
         ),
       ),
-      child: content,
     );
   }
 }
