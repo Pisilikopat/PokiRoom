@@ -58,7 +58,7 @@ def configure():
                     1
                 )
             else:
-                content = content.replace("plugins {", 'plugins {\n    id("com.google.gms.google-services")\n', 1)
+                content = content.replace('plugins {', 'plugins {\n    id("com.google.gms.google-services")\n', 1)
             with open(app_kts, "w", encoding="utf-8") as f:
                 f.write(content)
             print(f"Applied google-services plugin in {app_kts}")
@@ -117,6 +117,10 @@ def configure():
             '<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>',
             '<uses-permission android:name="android.permission.RECORD_AUDIO"/>',
             '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>',
+            '<uses-permission android:name="android.permission.BLUETOOTH"/>',
+            '<uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>',
+            '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>',
+            '<uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>',
         ]
         for perm in permissions:
             if perm not in manifest:
