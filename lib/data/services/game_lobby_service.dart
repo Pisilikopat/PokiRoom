@@ -50,9 +50,10 @@ class GameLobbyService extends ChangeNotifier {
     _roomId = roomId;
     _myId = _db.auth.currentUser?.id;
 
+    final myKey = _myId ?? '';
     final channel = _db.channel(
       'room:$roomId:lobby',
-      opts: RealtimeChannelConfig(key: _myId),
+      opts: RealtimeChannelConfig(key: myKey),
     );
 
     channel

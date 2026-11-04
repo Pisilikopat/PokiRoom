@@ -60,7 +60,7 @@ class PokiPokeMenu extends StatelessWidget {
             const SizedBox(height: 12),
             GridView.count(
               shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics),
+              physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: 2,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
