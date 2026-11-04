@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/poki_theme.dart';
+import '../../data/services/room_presence.dart';
 import 'data/quiz_question_bank.dart';
 import 'logic/quiz_deck.dart';
 import 'logic/quiz_engine.dart';
@@ -65,6 +66,9 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
       starter: widget.isHost ? QuizSide.me : QuizSide.partner,
       sync: _sync,
     );
+    RoomPresence.current?.setActivity(
+      widget.isHost ? PokiActivity.inQuizWaiting : PokiActivity.inQuizPlaying,
+    );
   }
 
   List<QuizQuestion> _buildQuestions() {
@@ -107,6 +111,7 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
 
   @override
   void dispose() {
+    RoomPresence.current?.setActivity(PokiActivity.chatting);
     _controller.dispose();
     super.dispose();
   }

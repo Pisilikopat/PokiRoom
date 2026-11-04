@@ -8,6 +8,7 @@ import '../../core/errors/poki_exception.dart';
 import '../../core/theme/poki_theme.dart';
 import '../../data/models/poki_memory.dart';
 import '../../data/repositories/memory_repository.dart';
+import '../../data/services/room_presence.dart';
 import '../workshop/widgets/sticker_picker_sheet.dart';
 import 'widgets/memory_card.dart';
 import 'widgets/note_composer_sheet.dart';
@@ -30,6 +31,18 @@ class _MemoriesScreenState extends State<MemoriesScreen> {
       _repo.watchMemories(widget.roomId);
 
   String get _myId => Supabase.instance.client.auth.currentUser!.id;
+
+  @override
+  void initState() {
+    super.initState();
+    RoomPresence.current?.setActivity(PokiActivity.memories);
+  }
+
+  @override
+  void dispose() {
+    RoomPresence.current?.setActivity(PokiActivity.inApp);
+    super.dispose();
+  }
 
   void _snack(String text) {
     if (!mounted) return;

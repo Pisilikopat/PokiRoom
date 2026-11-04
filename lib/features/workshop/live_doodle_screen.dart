@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/poki_theme.dart';
+import '../../data/services/room_presence.dart';
 import 'doodle_controller.dart';
 import 'live_doodle_sync.dart';
 import 'save_sticker_flow.dart';
@@ -42,10 +43,12 @@ class _LiveDoodleScreenState extends State<LiveDoodleScreen> {
     super.initState();
     _sync.join();
     widget.onInvitePartner?.call();
+    RoomPresence.current?.setActivity(PokiActivity.inLiveDoodle);
   }
 
   @override
   void dispose() {
+    RoomPresence.current?.setActivity(PokiActivity.chatting);
     _sync.dispose();
     _controller.dispose();
     super.dispose();

@@ -8,13 +8,15 @@ import '../../app_gate.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/theme/poki_theme.dart';
 import '../../data/models/poki_user.dart';
+import '../../data/repositories/room_repository.dart';
 import '../../data/repositories/user_repository.dart';
+import '../../data/services/room_presence.dart';
 import '../../main.dart';
 import '../../shared/widgets/poki_card.dart';
+import '../arcade/games_hub_screen.dart';
 import '../memories/memories_screen.dart';
 import '../notifications/widgets/activity_bell_button.dart';
 import '../workshop/doodle_studio_screen.dart';
-import '../arcade/games_hub_screen.dart';
 import 'widgets/avatar_picker.dart';
 
 /// Ana ekran: Profil başlığı + özellik kartları.
@@ -27,6 +29,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _users = UserRepository();
+  final _rooms = RoomRepository();
   PokiUser? _me;
   String? _avatarUrl;
 
@@ -36,12 +39,41 @@ class _HomeScreenState extends State<HomeScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    RoomPresence.current?.removeListener(_onPresenceChanged);
+    super.dispose();
+  }
+
+  void _onPresenceChanged() {
+    if (mounted) setState(() {});
+  }
+
   Future<void> _load() async {
     try {
       final me = await _users.fetchMe();
       final url = _users.getAvatarUrl(me.id);
-      if (mounted) setState(() { _me = me; _avatarUrl = url; });
+      if (mounted) {
+        setState(() {
+          _me = me;
+          _avatarUrl = url;
+        });
+      }
       NotificationService.instance.syncTokenWithSupabase();
+
+      if (me.hasRoom && me.currentRoomId != null) {
+        final room = await _rooms.fetchRoom(me.currentRoomId!);
+        final partnerId = room.partnerOf(me.id);
+        final presence = RoomPresence.ensure(
+          roomId: me.currentRoomId!,
+          myId: me.id,
+          partnerId: partnerId,
+        );
+        presence.removeListener(_onPresenceChanged);
+        presence.addListener(_onPresenceChanged);
+        presence.join();
+        presence.setActivity(PokiActivity.inApp);
+      }
     } catch (_) {
       // Profil yüklenemezse sessizce devam et
     }
@@ -66,13 +98,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _signOut() async {
+    RoomPresence.current?.dispose();
+    RoomPresence.current = null;
     await Supabase.instance.client.auth.signOut();
   }
 
   void _openChat() {
-    Navigator.of(context).push(
+    RoomPresence.current?.setActivity(PokiActivity.chatting);
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(builder: (_) => const AppGate()),
-    );
+    )
+        .then((_) {
+      RoomPresence.current?.setActivity(PokiActivity.inApp);
+    });
   }
 
   void _openWorkshop() {
@@ -80,11 +119,16 @@ class _HomeScreenState extends State<HomeScreen> {
       _showNeedRoomSnackBar();
       return;
     }
-    Navigator.of(context).push(
+    RoomPresence.current?.setActivity(PokiActivity.workshop);
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (_) => DoodleStudioScreen(roomId: _me!.currentRoomId!),
       ),
-    );
+    )
+        .then((_) {
+      RoomPresence.current?.setActivity(PokiActivity.inApp);
+    });
   }
 
   void _openMemories() {
@@ -92,11 +136,16 @@ class _HomeScreenState extends State<HomeScreen> {
       _showNeedRoomSnackBar();
       return;
     }
-    Navigator.of(context).push(
+    RoomPresence.current?.setActivity(PokiActivity.memories);
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (_) => MemoriesScreen(roomId: _me!.currentRoomId!),
       ),
-    );
+    )
+        .then((_) {
+      RoomPresence.current?.setActivity(PokiActivity.inApp);
+    });
   }
 
   void _openArcade() {
@@ -104,11 +153,16 @@ class _HomeScreenState extends State<HomeScreen> {
       _showNeedRoomSnackBar();
       return;
     }
-    Navigator.of(context).push(
+    RoomPresence.current?.setActivity(PokiActivity.gamesHub);
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (_) => GamesHubScreen(roomId: _me!.currentRoomId!),
       ),
-    );
+    )
+        .then((_) {
+      RoomPresence.current?.setActivity(PokiActivity.inApp);
+    });
   }
 
   void _showNeedRoomSnackBar() {
@@ -116,7 +170,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         const SnackBar(
-          content: Text('Atölye ve Anılar için önce biriyle odaya bağlanmalısın 🐾'),
+          content:
+              Text('Atölye ve Anılar için önce biriyle odaya bağlanmalısın 🐾'),
         ),
       );
   }
@@ -124,19 +179,37 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final nickname = _me?.nickname ?? '...';
+    final presence = RoomPresence.current;
+    final partnerOnline = presence?.partnerOnline ?? false;
+    final activity = presence?.partnerActivity;
+
+    String? chatStatus;
+    if (partnerOnline && activity != null) {
+      chatStatus = activity.text;
+    }
+
+    String? arcadeStatus;
+    if (partnerOnline &&
+        (activity?.type == PokiActivityType.inQuizWaiting ||
+            activity?.type == PokiActivityType.inPuzzleWaiting ||
+            activity?.type == PokiActivityType.inQuizPlaying ||
+            activity?.type == PokiActivityType.inPuzzlePlaying)) {
+      arcadeStatus = activity?.text;
+    }
 
     return Scaffold(
+      backgroundColor: PokiColors.backgroundOf(context),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ─── Profil Başlığı ───
+              // ─── Profil & Ayarlar Üst Barı ───
               Row(
                 children: [
                   AvatarPicker(
-                    imageUrl: _avatarUrl,
+                    avatarUrl: _avatarUrl,
                     onPicked: _onAvatarPicked,
                   ),
                   const SizedBox(width: 16),
@@ -145,18 +218,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Merhaba, $nickname 🐾',
+                          'Merhaba,',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: PokiColors.textOf(context).withOpacity(0.6),
+                          ),
+                        ),
+                        Text(
+                          _me?.nickname ?? 'Poki Dostu',
                           style: textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        if (_me != null)
-                          Text(
-                            _me!.customTag,
-                            style: textTheme.bodySmall?.copyWith(
-                              color: PokiColors.text.withOpacity(0.5),
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -166,9 +238,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context, mode, _) {
                       final isDark = mode == ThemeMode.dark;
                       return IconButton(
-                        tooltip: isDark ? 'Gündüz Moduna Geç' : 'Gece Moduna Geç',
+                        tooltip: isDark ? 'Gündüz Modu' : 'Gece Modu',
                         icon: Icon(
-                          isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                          isDark
+                              ? Icons.light_mode_rounded
+                              : Icons.dark_mode_rounded,
                           color: isDark ? PokiColors.lampOn : null,
                         ),
                         onPressed: PokiRoomApp.toggleTheme,
@@ -191,6 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: 'Patile',
                 subtitle: 'Birine tıklat veya cebindeki sohbete dön',
                 color: PokiColors.primary.withOpacity(0.25),
+                liveStatus: chatStatus,
                 onTap: _openChat,
               ),
 
@@ -221,6 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: 'Oyun Odası',
                 subtitle: 'Birlikte mini oyunlar oyna, lobi kur veya katıl',
                 color: PokiColors.primaryButton.withOpacity(0.3),
+                liveStatus: arcadeStatus,
                 onTap: _openArcade,
               ),
             ],
@@ -228,14 +304,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-  }
-
-  void _comingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Bu özellik çok yakında geliyor 🐾')),
-      );
   }
 }
 
@@ -246,6 +314,7 @@ class _FeatureCard extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.onTap,
+    this.liveStatus,
   });
 
   final String emoji;
@@ -253,6 +322,7 @@ class _FeatureCard extends StatelessWidget {
   final String subtitle;
   final Color color;
   final VoidCallback onTap;
+  final String? liveStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -282,6 +352,33 @@ class _FeatureCard extends StatelessWidget {
                       color: PokiColors.text.withOpacity(0.6),
                     ),
                   ),
+                  if (liveStatus != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF81C784),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            liveStatus!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF2E7D32),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

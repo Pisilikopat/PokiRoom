@@ -86,6 +86,10 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     _init();
   }
 
+  void _onPresenceChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -94,7 +98,8 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     for (final s in _subs) {
       s.cancel();
     }
-    _presence?.dispose();
+    _presence?.removeListener(_onPresenceChanged);
+    _presence?.setActivity(PokiActivity.inApp);
     super.dispose();
   }
 
@@ -110,15 +115,14 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       final partner = await _users.fetchUser(partnerId);
       if (!mounted) return;
 
-      final presence = RoomPresence(
+      final presence = RoomPresence.ensure(
         roomId: widget.roomId,
         myId: _myId,
         partnerId: partnerId,
-      )
-        ..addListener(() {
-          if (mounted) setState(() {});
-        })
-        ..join();
+      );
+      presence.addListener(_onPresenceChanged);
+      presence.join();
+      presence.setActivity(PokiActivity.chatting);
 
       setState(() {
         _room = room;
@@ -240,6 +244,40 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
         );
       },
     );
+  }
+
+  void _handleQuickAction(String actionType) {
+    HapticFeedback.mediumImpact();
+    if (actionType == 'doodle') {
+      _openLive(invite: false);
+    } else if (actionType == 'quiz') {
+      final invite = GameLobbyService.instance.activeQuizInvite;
+      if (invite != null) {
+        GameLobbyService.instance.clearInvite();
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => QuizGameScreen(
+              roomId: widget.roomId,
+              config: invite.config,
+              deck: QuizDeck(invite.questions),
+              isHost: false,
+            ),
+          ),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => QuizLobbyScreen(roomId: widget.roomId),
+          ),
+        );
+      }
+    } else if (actionType == 'puzzle') {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => GamesHubScreen(roomId: widget.roomId),
+        ),
+      );
+    }
   }
 
   // ------------------------------------------------------------ Poki-Poke
@@ -501,6 +539,8 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     if (confirmed != true) return;
     try {
       await _rooms.closeRoom();
+      RoomPresence.current?.dispose();
+      RoomPresence.current = null;
     } on PokiException catch (e) {
       _snack(e.message);
     }
@@ -536,8 +576,11 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                 me: _me,
                 partner: _partner,
                 partnerOnline: presence?.partnerOnline ?? false,
+                partnerActivity:
+                    presence?.partnerActivity ?? PokiActivity.offline,
                 streak: _room?.streakCount ?? 1,
                 onClosePocket: _confirmClosePocket,
+                onQuickAction: _handleQuickAction,
               ),
               Expanded(child: _buildMessages()),
               if (presence?.partnerTyping ?? false)

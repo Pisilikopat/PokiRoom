@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/poki_theme.dart';
+import '../../data/services/room_presence.dart';
 import 'doodle_controller.dart';
 import 'live_doodle_screen.dart';
 import 'save_sticker_flow.dart';
@@ -35,7 +36,14 @@ class _DoodleStudioScreenState extends State<DoodleStudioScreen> {
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    RoomPresence.current?.setActivity(PokiActivity.workshop);
+  }
+
+  @override
   void dispose() {
+    RoomPresence.current?.setActivity(PokiActivity.inApp);
     _controller.dispose();
     super.dispose();
   }

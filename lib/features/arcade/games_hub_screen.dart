@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/poki_theme.dart';
 import '../../data/services/game_lobby_service.dart';
+import '../../data/services/room_presence.dart';
 import '../../shared/widgets/poki_card.dart';
 import '../puzzle/puzzle_setup_screen.dart';
 import '../quiz/logic/quiz_deck.dart';
@@ -24,6 +25,13 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
   void initState() {
     super.initState();
     GameLobbyService.instance.init(widget.roomId);
+    RoomPresence.current?.setActivity(PokiActivity.gamesHub);
+  }
+
+  @override
+  void dispose() {
+    RoomPresence.current?.setActivity(PokiActivity.inApp);
+    super.dispose();
   }
 
   void _joinQuiz(QuizInvite invite) {

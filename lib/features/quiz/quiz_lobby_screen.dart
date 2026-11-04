@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/repositories/user_repository.dart';
 import '../../data/services/game_lobby_service.dart';
+import '../../data/services/room_presence.dart';
 import 'data/quiz_question_bank.dart';
 import 'logic/quiz_deck.dart';
 import 'models/quiz_category.dart';
@@ -40,6 +41,13 @@ class _QuizLobbyScreenState extends State<QuizLobbyScreen> {
   void initState() {
     super.initState();
     GameLobbyService.instance.init(widget.roomId);
+    RoomPresence.current?.setActivity(PokiActivity.inQuizWaiting);
+  }
+
+  @override
+  void dispose() {
+    RoomPresence.current?.setActivity(PokiActivity.chatting);
+    super.dispose();
   }
 
   Future<void> _addCustom() async {
