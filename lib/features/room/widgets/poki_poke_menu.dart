@@ -5,6 +5,7 @@ import '../../../core/theme/poki_theme.dart';
 
 enum PokiPokeAction {
   thinkingOfYou,
+  voiceCall,
   foggyMessage,
   sticker,
   liveDoodle,
@@ -34,19 +35,21 @@ class PokiPokeMenu extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final items = <_MenuItem>[
       const _MenuItem(PokiPokeAction.thinkingOfYou, Icons.favorite_rounded,
-          'Seni Düşünüyorum', 'Kalpler uçuşsun'),
+          'Seni Düşünüyorum', 'Kalpler uçuşsun 💖'),
+      const _MenuItem(PokiPokeAction.voiceCall, Icons.call_rounded,
+          'Sesli Arama', 'Canlı 1-e-1 sohbet 📞'),
       const _MenuItem(PokiPokeAction.foggyMessage, Icons.cloud_rounded,
-          'Buğulu Mesaj', 'Silerek açılır'),
+          'Buğulu Mesaj', 'Silerek açılır 🌫️'),
       const _MenuItem(PokiPokeAction.sticker, Icons.emoji_emotions_rounded,
-          'Çıkartma Gönder', 'Kendi çizimlerin'),
+          'Çıkartma Gönder', 'Kendi çizimlerin 🐾'),
       const _MenuItem(PokiPokeAction.liveDoodle, Icons.people_alt_rounded,
-          'Birlikte Çiz', 'Canlı ortak tuval'),
+          'Birlikte Çiz', 'Canlı ortak tuval 🎨'),
       const _MenuItem(PokiPokeAction.workshop, Icons.brush_rounded, 'Atölye',
-          'Çiz, çıkartma yap'),
+          'Çiz, çıkartma yap ✨'),
       const _MenuItem(PokiPokeAction.memories, Icons.push_pin_rounded, 'Anılar',
-          'Mantar panomuz'),
+          'Mantar panomuz 📌'),
       const _MenuItem(PokiPokeAction.arcade, Icons.sports_esports_rounded,
-          'Oyun Odası', 'Quiz, Puzzle & fazlası'),
+          'Oyun Odası', 'Quiz, Puzzle & fazlası 🎮'),
     ];
 
     return SafeArea(
@@ -59,15 +62,15 @@ class PokiPokeMenu extends StatelessWidget {
             Text('Poki-Poke 🐾', style: textTheme.titleLarge),
             const SizedBox(height: 12),
             GridView.count(
+              crossAxisCount: 2,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.1,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 2.2,
               children: [
                 for (final item in items)
-                  _MenuTile(
+                  _ActionTile(
                     item: item,
                     onTap: () => Navigator.of(context).pop(item.action),
                   ),
@@ -82,14 +85,15 @@ class PokiPokeMenu extends StatelessWidget {
 
 class _MenuItem {
   const _MenuItem(this.action, this.icon, this.title, this.subtitle);
+
   final PokiPokeAction action;
   final IconData icon;
   final String title;
   final String subtitle;
 }
 
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.item, required this.onTap});
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({required this.item, required this.onTap});
 
   final _MenuItem item;
   final VoidCallback onTap;
@@ -97,40 +101,51 @@ class _MenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: PokiColors.surfaceOf(context),
-      borderRadius: PokiRadius.all,
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: PokiRadius.all,
         onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: isDark ? PokiColors.darkPrimary : PokiColors.primary,
+                  color: PokiColors.primary.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(item.icon, color: isDark ? PokiColors.darkBackground : PokiColors.background),
+                child: Icon(item.icon, color: PokiColors.primaryButton, size: 20),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w800)),
-                  Text(item.subtitle,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: textTheme.bodySmall),
-                ],
+                    ),
+                    Text(
+                      item.subtitle,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: PokiColors.textOf(context).withOpacity(0.6),
+                        fontSize: 10,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

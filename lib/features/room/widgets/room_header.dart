@@ -9,7 +9,7 @@ import '../../../data/services/room_presence.dart';
 import '../../../main.dart';
 import '../../notifications/widgets/activity_bell_button.dart';
 
-/// Dost "Cep Odası": iki kedi + masa lambası, PokiPet sayacı, zengin durum ve hızlı aksiyonlar.
+/// Üst "Cep Odası": iki kedi + masa lambası, PokiPet sayacı, zengin durum ve hızlı aksiyonlar.
 class RoomHeader extends StatelessWidget {
   const RoomHeader({
     super.key,
@@ -38,10 +38,10 @@ class RoomHeader extends StatelessWidget {
 
   /// Seri büyüdükçe PokiPet de büyür.
   String get _petEmoji {
-    if (streak >= 30) return '🦁';
-    if (streak >= 7) return '🦊';
-    if (streak >= 3) return '🐱';
-    return '🐾';
+    if (streak >= 30) return '🌸';
+    if (streak >= 7) return '🪴';
+    if (streak >= 3) return '🌿';
+    return '🌱';
   }
 
   Widget _buildPartnerStatus(BuildContext context, TextTheme textTheme) {
@@ -54,115 +54,117 @@ class RoomHeader extends StatelessWidget {
       );
     }
 
-    if (partnerActivity.type != PokiActivityType.offline) {
-      return Row(
+    final activity = partnerActivity;
+    final actionLabel = activity.actionLabel;
+    final actionType = activity.actionType;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 260),
+      child: Column(
+        key: ValueKey(activity.type.name + (actionLabel ?? '')),
         mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(
-            child: Text(
-              partnerActivity.text,
-              style: textTheme.bodySmall?.copyWith(
-                color: PokiColors.textOf(context).withOpacity(0.85),
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (partnerActivity.actionLabel != null && onQuickAction != null) ...[
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: () => onQuickAction!(partnerActivity.actionType ?? ''),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: PokiColors.primary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: PokiColors.primary.withOpacity(0.4),
-                    width: 0.8,
-                  ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF81C784),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x6681C784),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
                 child: Text(
-                  partnerActivity.actionLabel!,
-                  style: GoogleFonts.outfit(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: PokiColors.primaryButton,
+                  activity.text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: PokiColors.textOf(context).withOpacity(0.85),
                   ),
                 ),
               ),
+            ],
+          ),
+          if (actionLabel != null && actionType != null) ...[
+            const SizedBox(height: 6),
+            _QuickActionPill(
+              label: actionLabel,
+              onTap: () => onQuickAction?.call(actionType),
             ),
           ],
         ],
-      );
-    }
-
-    return Text(
-      '${partner?.nickname ?? 'Karşı taraf'} odada 🕯️',
-      style: textTheme.bodySmall?.copyWith(
-        color: PokiColors.textOf(context).withOpacity(0.75),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: PokiColors.surfaceOf(context),
-        boxShadow: PokiShadows.softOf(context),
         borderRadius: const BorderRadius.vertical(
           bottom: Radius.circular(PokiRadius.card),
         ),
+        boxShadow: PokiShadows.softOf(context),
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+          padding: const EdgeInsets.fromLTRB(8, 4, 12, 16),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _CatAvatar(
-                    emoji: me?.moodEmoji ?? '🐱',
-                    label: me?.nickname ?? 'Sen',
-                    isMe: true,
+                  IconButton(
+                    tooltip: 'Geri Dön',
+                    icon:
+                        const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                    onPressed: () => Navigator.of(context).maybePop(),
                   ),
-                  const SizedBox(width: 8),
-                  _DeskLamp(isOnline: partnerOnline),
-                  const SizedBox(width: 8),
-                  _CatAvatar(
-                    emoji: partner?.moodEmoji ?? '🐱',
-                    label: partner?.nickname ?? 'Partnerin',
-                    isMe: false,
-                  ),
-                  const Spacer(),
                   _PokiPetChip(emoji: _petEmoji, streak: streak),
-                  Row(
+                                    Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (onVoiceCallTap != null)
                         IconButton(
                           tooltip: 'Sesli Ara',
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
                           icon: const Icon(
                             Icons.call_rounded,
-                            size: 22,
+                            size: 20,
                             color: Color(0xFF6BCF7F),
                           ),
-                          onPressed: onVoiceCallTap,
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            onVoiceCallTap?.call();
+                          },
                         ),
                       IconButton(
                         tooltip: isSearching ? 'Aramayı Kapat' : 'Sohbette Ara',
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
                         icon: Icon(
                           isSearching
                               ? Icons.search_off_rounded
                               : Icons.search_rounded,
-                          size: 22,
+                          size: 20,
                           color: isSearching ? PokiColors.primaryButton : null,
                         ),
                         onPressed: onSearchTap,
@@ -170,7 +172,9 @@ class RoomHeader extends StatelessWidget {
                       const ActivityBellButton(),
                       PopupMenuButton<String>(
                         tooltip: 'Seçenekler',
-                        icon: const Icon(Icons.more_vert_rounded),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                        icon: const Icon(Icons.more_vert_rounded, size: 22),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -185,66 +189,215 @@ class RoomHeader extends StatelessWidget {
                             onClosePocket();
                           }
                         },
-                        itemBuilder: (context) => [
-                          if (onVoiceCallTap != null)
+                        itemBuilder: (context) {
+                          final isDark =
+                              Theme.of(context).brightness == Brightness.dark;
+                          return [
+                            if (onVoiceCallTap != null)
+                              const PopupMenuItem(
+                                value: 'call',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.call_rounded,
+                                      size: 20,
+                                      color: Color(0xFF6BCF7F),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      'Sesli Ara 🐾',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             const PopupMenuItem(
-                              value: 'call',
+                              value: 'search',
                               child: Row(
                                 children: [
-                                  Icon(Icons.call_rounded, size: 20, color: Color(0xFF6BCF7F)),
+                                  Icon(Icons.search_rounded, size: 20),
                                   SizedBox(width: 10),
-                                  Text('Sesli Ara 🐾'),
+                                  Text(
+                                    'Sohbette Ara',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600),
+                                  ),
                                 ],
                               ),
                             ),
-                          const PopupMenuItem(
-                            value: 'search',
-                            child: Row(
-                              children: [
-                                Icon(Icons.search_rounded, size: 20),
-                                SizedBox(width: 10),
-                                Text('Sohbette Ara'),
-                              ],
+                            const PopupMenuDivider(),
+                            PopupMenuItem(
+                              value: 'toggle_theme',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isDark
+                                        ? Icons.light_mode_rounded
+                                        : Icons.dark_mode_rounded,
+                                    size: 20,
+                                    color: isDark ? PokiColors.lampOn : null,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    isDark ? 'Gündüz Modu' : 'Gece Modu',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'toggle_theme',
-                            child: Row(
-                              children: [
-                                Icon(Icons.brightness_medium_rounded, size: 20),
-                                SizedBox(width: 10),
-                                Text('Temayı Değiştir'),
-                              ],
+                            const PopupMenuDivider(),
+                            PopupMenuItem(
+                              value: 'close_pocket',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.door_back_door_outlined,
+                                    color: Colors.red.shade400,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Cebi Kapat',
+                                    style: TextStyle(
+                                      color: Colors.red.shade400,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const PopupMenuDivider(),
-                          PopupMenuItem(
-                            value: 'close_pocket',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.lock_outline_rounded,
-                                  size: 20,
-                                  color: Colors.red.shade400,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'Cebi Kapat',
-                                  style: TextStyle(color: Colors.red.shade400),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                          ];
+                        },
                       ),
                     ],
                   ),
                 ],
               ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _CatColumn(
+                      name: me?.nickname ?? 'Sen',
+                      awake: true,
+                      user: me,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 22),
+                    child: _Lamp(on: partnerOnline),
+                  ),
+                  Expanded(
+                    child: _CatColumn(
+                      name: partner?.nickname ?? '...',
+                      awake: partnerOnline,
+                      user: partner,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _buildPartnerStatus(context, textTheme),
+              _buildPartnerStatus(context, Theme.of(context).textTheme),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionPill extends StatefulWidget {
+  const _QuickActionPill({
+    required this.label,
+    required this.onTap,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  State<_QuickActionPill> createState() => _QuickActionPillState();
+}
+
+class _QuickActionPillState extends State<_QuickActionPill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) {
+        final scale = 0.98 + (_pulseController.value * 0.05);
+        return Transform.scale(
+          scale: scale,
+          child: child,
+        );
+      },
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          widget.onTap();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFFFF9E80),
+                Color(0xFFFF7043),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF7043).withOpacity(0.4),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+            border: Border.all(
+              color: Colors.white.withOpacity(0.9),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('🐾', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 5),
+              Text(
+                widget.label,
+                style: GoogleFonts.fredoka(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                size: 14,
+                color: Colors.white,
               ),
             ],
           ),
@@ -254,58 +407,40 @@ class RoomHeader extends StatelessWidget {
   }
 }
 
-class _CatAvatar extends StatelessWidget {
-  const _CatAvatar({
-    required this.emoji,
-    required this.label,
-    required this.isMe,
-  });
-
+class _PokiPetChip extends StatelessWidget {
+  const _PokiPetChip({required this.emoji, required this.streak});
   final String emoji;
-  final String label;
-  final bool isMe;
+  final int streak;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: PokiColors.backgroundOf(context),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isMe
-                  ? PokiColors.primary
-                  : PokiColors.primary.withOpacity(0.4),
-              width: 2,
-            ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: PokiColors.backgroundOf(context),
+        borderRadius: PokiRadius.all,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 6),
+          Text(
+            '$streak gün',
+            style: Theme.of(context)
+                .textTheme
+                .labelLarge
+                ?.copyWith(fontWeight: FontWeight.w800),
           ),
-          alignment: Alignment.center,
-          child: Text(emoji, style: const TextStyle(fontSize: 22)),
-        ),
-        const SizedBox(height: 3),
-        SizedBox(
-          width: 56,
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _DeskLamp extends StatelessWidget {
-  const _DeskLamp({required this.isOnline});
-
-  final bool isOnline;
+class _Lamp extends StatelessWidget {
+  const _Lamp({required this.on});
+  final bool on;
 
   @override
   Widget build(BuildContext context) {
@@ -315,67 +450,112 @@ class _DeskLamp extends StatelessWidget {
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           width: 22,
-          height: 22,
+          height: 18,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isOnline ? PokiColors.lampOn : Colors.grey.shade400,
-            boxShadow: isOnline
+            color: on ? PokiColors.lampOn : Colors.grey.shade400,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(12)),
+            boxShadow: on
                 ? [
                     BoxShadow(
                       color: PokiColors.lampOn.withOpacity(0.6),
-                      blurRadius: 8,
-                      spreadRadius: 2,
+                      blurRadius: 12,
+                      spreadRadius: 3,
                     ),
                   ]
                 : null,
           ),
-          alignment: Alignment.center,
-          child: const Text('🕯️', style: TextStyle(fontSize: 12)),
         ),
-        const SizedBox(height: 3),
-        Text(
-          isOnline ? 'Açık' : 'Kapalı',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 9),
+        Container(width: 3, height: 14, color: PokiColors.text.withOpacity(0.4)),
+        Container(
+          width: 14,
+          height: 4,
+          decoration: BoxDecoration(
+            color: PokiColors.text.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
       ],
     );
   }
 }
 
-class _PokiPetChip extends StatelessWidget {
-  const _PokiPetChip({required this.emoji, required this.streak});
+class _CatColumn extends StatelessWidget {
+  const _CatColumn({
+    required this.name,
+    required this.awake,
+    this.user,
+  });
 
-  final String emoji;
-  final int streak;
+  final String name;
+  final bool awake;
+  final PokiUser? user;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(right: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: PokiColors.backgroundOf(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: PokiColors.primary.withOpacity(0.4),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 14)),
-          const SizedBox(width: 4),
-          Text(
-            '$streak gün',
-            style: GoogleFonts.outfit(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: PokiColors.textOf(context),
+    final textTheme = Theme.of(context).textTheme;
+    final avatar = user?.avatarUrl;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: PokiColors.primary.withOpacity(0.25),
+                border: Border.all(
+                  color: awake ? PokiColors.primaryButton : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: ClipOval(
+                child: avatar != null
+                    ? Image.network(
+                        avatar,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Center(
+                          child: Text(
+                            awake ? '🐱' : '😴',
+                            style: const TextStyle(fontSize: 28),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          awake ? '🐱' : '😴',
+                          style: const TextStyle(fontSize: 28),
+                        ),
+                      ),
+              ),
             ),
-          ),
-        ],
-      ),
+            if (!awake)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: PokiColors.surfaceOf(context),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Text('💤', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 }

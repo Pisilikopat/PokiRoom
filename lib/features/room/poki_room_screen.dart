@@ -547,6 +547,8 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     switch (action) {
       case PokiPokeAction.thinkingOfYou:
         await _sendPoke();
+      case PokiPokeAction.voiceCall:
+        await _startVoiceCall();
       case PokiPokeAction.foggyMessage:
         await _composeFoggy();
       case PokiPokeAction.sticker:
