@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/poki_theme.dart';
 import '../models/cat_art.dart';
 import '../models/puzzle_image_selection.dart';
+import 'cat_art_widget.dart';
 
 /// Görsel kaynağı: Galeri / Kedi çizimleri / Anılar (yakında).
 class ImageSourcePicker extends StatefulWidget {
@@ -188,8 +189,11 @@ class _CatGrid extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('🐱', style: TextStyle(fontSize: 34)),
-                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: CatArtWidget(cat: cat, size: 52),
+                  ),
+                  const SizedBox(height: 6),
                   Text(cat.name,
                       style: Theme.of(context)
                           .textTheme

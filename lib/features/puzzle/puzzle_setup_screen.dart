@@ -5,6 +5,7 @@ import '../../core/theme/poki_theme.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/services/game_lobby_service.dart';
 import '../../data/services/room_presence.dart';
+import 'models/cat_art.dart';
 import 'models/puzzle_config.dart';
 import 'models/puzzle_difficulty.dart';
 import 'models/puzzle_image_selection.dart';
@@ -26,7 +27,8 @@ class PuzzleSetupScreen extends StatefulWidget {
 
 class _PuzzleSetupScreenState extends State<PuzzleSetupScreen> {
   final _users = UserRepository();
-  PuzzleImageSelection? _image;
+  PuzzleImageSelection? _image =
+      PuzzleImageSelection.cat(CatArt.all.first.id);
   PuzzleDifficulty _difficulty = PuzzleDifficulty.recommended;
   PuzzleMode _mode = PuzzleMode.coop;
   bool _starting = false;
