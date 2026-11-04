@@ -12,14 +12,67 @@ class MessageRepository {
 
   String get _uid => _db.auth.currentUser!.id;
 
-  /// En yeni mesaj ilk sırada, son 100 mesaj (ters ListView için uygun).
-  Stream<List<PokiMessage>> watchMessages(String roomId) => _db
+  /// En yeni mesaj ilk sırada, varsayılan son 40 mesaj (ters ListView için uygun).
+  Stream<List<PokiMessage>> watchMessages(String roomId, {int limit = 40}) => _db
       .from('messages')
       .stream(primaryKey: ['id'])
       .eq('room_id', roomId)
       .order('created_at', ascending: false)
-      .limit(100)
+      .limit(limit)
       .map((rows) => rows.map(PokiMessage.fromMap).toList());
+
+  /// Belirli bir tarihten önceki eski mesajları sayfalı çeker (Cursor-based pagination).
+  Future<List<PokiMessage>> fetchOlderMessages(
+    String roomId, {
+    required DateTime before,
+    int limit = 40,
+    String? messageType,
+  }) async {
+    var query = _db
+        .from('messages')
+        .select()
+        .eq('room_id', roomId)
+        .lt('created_at', before.toUtc().toIso8601String());
+
+    if (messageType != null && messageType.isNotEmpty && messageType != 'all') {
+      query = query.eq('message_type', messageType);
+    }
+
+    final rows = await query
+        .order('created_at', ascending: false)
+        .limit(limit);
+
+    return (rows as List)
+        .map((m) => PokiMessage.fromMap(m as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Tüm oda geçmişinde kelime ve mesaj türüne göre arama yapar.
+  Future<List<PokiMessage>> searchMessages(
+    String roomId, {
+    String? query,
+    String? messageType,
+    int limit = 80,
+  }) async {
+    var req = _db.from('messages').select().eq('room_id', roomId);
+
+    if (messageType != null && messageType.isNotEmpty && messageType != 'all') {
+      req = req.eq('message_type', messageType);
+    }
+
+    final cleanQ = query?.trim() ?? '';
+    if (cleanQ.isNotEmpty) {
+      req = req.ilike('content', '%$cleanQ%');
+    }
+
+    final rows = await req
+        .order('created_at', ascending: false)
+        .limit(limit);
+
+    return (rows as List)
+        .map((m) => PokiMessage.fromMap(m as Map<String, dynamic>))
+        .toList();
+  }
 
   Future<void> sendText(String roomId, String text, {PokiReplyInfo? reply}) {
     final finalContent = reply != null

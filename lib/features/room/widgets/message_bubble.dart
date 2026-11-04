@@ -16,6 +16,7 @@ class MessageBubble extends StatelessWidget {
     this.onFoggyRevealed,
     this.onLongPress,
     this.onSwipeReply,
+    this.isHighlighted = false,
   });
 
   final PokiMessage message;
@@ -27,6 +28,9 @@ class MessageBubble extends StatelessWidget {
 
   /// Kaydırınca yanıtlama tetikleyicisi
   final void Function(PokiMessage message)? onSwipeReply;
+
+  /// Arama sonucunda vurgulanıp vurgulanmadığı
+  final bool isHighlighted;
 
   Widget _meta(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -77,12 +81,26 @@ class MessageBubble extends StatelessWidget {
           alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
           child: GestureDetector(
             onLongPress: onLongPress,
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 320),
               margin: const EdgeInsets.symmetric(vertical: 4),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: bubbleColor.withOpacity(0.35),
                 borderRadius: PokiRadius.all,
+                border: isHighlighted
+                    ? Border.all(color: const Color(0xFFFFB74D), width: 2.2)
+                    : null,
+                boxShadow: isHighlighted
+                    ? [
+                        ...PokiShadows.softOf(context),
+                        const BoxShadow(
+                          color: Color(0x77FFB74D),
+                          blurRadius: 14,
+                          spreadRadius: 3,
+                        ),
+                      ]
+                    : null,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -107,14 +125,27 @@ class MessageBubble extends StatelessWidget {
           alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
           child: GestureDetector(
             onLongPress: onLongPress,
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 320),
               constraints: BoxConstraints(maxWidth: maxWidth),
               margin: const EdgeInsets.symmetric(vertical: 4),
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
               decoration: BoxDecoration(
                 color: bubbleColor,
                 borderRadius: PokiRadius.all,
-                boxShadow: PokiShadows.softOf(context),
+                border: isHighlighted
+                    ? Border.all(color: const Color(0xFFFFB74D), width: 2.2)
+                    : null,
+                boxShadow: isHighlighted
+                    ? [
+                        ...PokiShadows.softOf(context),
+                        const BoxShadow(
+                          color: Color(0x77FFB74D),
+                          blurRadius: 14,
+                          spreadRadius: 3,
+                        ),
+                      ]
+                    : PokiShadows.softOf(context),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,

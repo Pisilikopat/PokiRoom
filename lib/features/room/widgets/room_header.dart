@@ -20,6 +20,8 @@ class RoomHeader extends StatelessWidget {
     required this.streak,
     required this.onClosePocket,
     this.onQuickAction,
+    this.onSearchTap,
+    this.isSearching = false,
   });
 
   final PokiUser? me;
@@ -29,6 +31,8 @@ class RoomHeader extends StatelessWidget {
   final int streak;
   final VoidCallback onClosePocket;
   final void Function(String actionType)? onQuickAction;
+  final VoidCallback? onSearchTap;
+  final bool isSearching;
 
   /// Seri büyüdükçe PokiPet de büyür.
   String get _petEmoji {
@@ -133,6 +137,17 @@ class RoomHeader extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      IconButton(
+                        tooltip: isSearching ? 'Aramayı Kapat' : 'Sohbette Ara',
+                        icon: Icon(
+                          isSearching
+                              ? Icons.search_off_rounded
+                              : Icons.search_rounded,
+                          size: 22,
+                          color: isSearching ? PokiColors.primaryButton : null,
+                        ),
+                        onPressed: onSearchTap,
+                      ),
                       const ActivityBellButton(),
                       PopupMenuButton<String>(
                         tooltip: 'Seçenekler',
@@ -141,7 +156,9 @@ class RoomHeader extends StatelessWidget {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         onSelected: (value) {
-                          if (value == 'toggle_theme') {
+                          if (value == 'search') {
+                            onSearchTap?.call();
+                          } else if (value == 'toggle_theme') {
                             PokiRoomApp.toggleTheme();
                           } else if (value == 'close_pocket') {
                             onClosePocket();
@@ -151,6 +168,21 @@ class RoomHeader extends StatelessWidget {
                           final isDark =
                               Theme.of(context).brightness == Brightness.dark;
                           return [
+                            const PopupMenuItem(
+                              value: 'search',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.search_rounded, size: 20),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    'Sohbette Ara',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuDivider(),
                             PopupMenuItem(
                               value: 'toggle_theme',
                               child: Row(

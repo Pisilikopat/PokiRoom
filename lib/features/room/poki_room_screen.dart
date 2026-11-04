@@ -28,6 +28,7 @@ import '../quiz/quiz_lobby_screen.dart';
 import '../workshop/doodle_studio_screen.dart';
 import '../workshop/live_doodle_screen.dart';
 import '../workshop/widgets/sticker_picker_sheet.dart';
+import 'widgets/chat_search_bar.dart';
 import 'widgets/foggy_compose_sheet.dart';
 import 'widgets/hearts_burst.dart';
 import 'widgets/message_bubble.dart';
@@ -65,6 +66,25 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   List<PokiMessage> _list = const [];
   RoomPresence? _presence;
 
+  // Sayfalama (Pagination) durumu
+  late final ScrollController _scrollController;
+  final TextEditingController _searchController = TextEditingController();
+
+  List<PokiMessage> _streamMessages = const [];
+  final List<PokiMessage> _olderMessages = [];
+  bool _loadingOlder = false;
+  bool _hasMoreOlder = true;
+
+  // Arama & Filtreleme durumu
+  bool _isSearchActive = false;
+  bool _isSearchingRunning = false;
+  String _selectedSearchFilter = 'all';
+  List<PokiMessage>? _searchResults;
+  int _searchMatchIndex = -1;
+  String? _highlightedMessageId;
+  Timer? _highlightTimer;
+  Timer? _searchDebounceTimer;
+
   final List<StreamSubscription<dynamic>> _subs = [];
   bool _foreground = true;
   bool _loading = true;
@@ -84,6 +104,8 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
     _init();
   }
 
@@ -95,6 +117,10 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _toastTimer?.cancel();
+    _highlightTimer?.cancel();
+    _searchDebounceTimer?.cancel();
+    _scrollController.dispose();
+    _searchController.dispose();
     _inputFocusNode.dispose();
     for (final s in _subs) {
       s.cancel();
@@ -141,9 +167,9 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       _listen(_users.watchMe(), (u) => _setState(() => _me = u));
       _listen(_users.watchUser(partnerId), (u) => _setState(() => _partner = u));
       _listen(_rooms.watchRoom(widget.roomId), (r) => _setState(() => _room = r));
-      _listen(_messages.watchMessages(widget.roomId), (list) {
-        _setState(() => _list = list);
-        _maybeMarkRead();
+      _listen(_messages.watchMessages(widget.roomId, limit: 40), (list) {
+        _streamMessages = list;
+        _rebuildMergedList();
       });
     } catch (_) {
       if (mounted) {
@@ -153,6 +179,179 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
         });
       }
     }
+  }
+
+  void _rebuildMergedList() {
+    final map = <String, PokiMessage>{};
+    for (final m in _streamMessages) {
+      map[m.id] = m;
+    }
+    for (final m in _olderMessages) {
+      map.putIfAbsent(m.id, () => m);
+    }
+    final merged = map.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _setState(() => _list = merged);
+    _maybeMarkRead();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final max = _scrollController.position.maxScrollExtent;
+    final current = _scrollController.position.pixels;
+    if (current >= max - 200 && !_loadingOlder && _hasMoreOlder && _list.isNotEmpty) {
+      _loadOlderMessages();
+    }
+  }
+
+  Future<void> _loadOlderMessages() async {
+    if (_loadingOlder || !_hasMoreOlder || _list.isEmpty) return;
+    setState(() {
+      _loadingOlder = true;
+    });
+
+    try {
+      final oldest = _list.last;
+      final older = await _messages.fetchOlderMessages(
+        widget.roomId,
+        before: oldest.createdAt,
+        limit: 40,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        if (older.isEmpty || older.length < 40) {
+          _hasMoreOlder = false;
+        }
+        _olderMessages.addAll(older);
+        _rebuildMergedList();
+        _loadingOlder = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loadingOlder = false;
+        });
+      }
+    }
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearchActive = !_isSearchActive;
+      if (!_isSearchActive) {
+        _searchController.clear();
+        _searchResults = null;
+        _searchMatchIndex = -1;
+        _highlightedMessageId = null;
+        _highlightTimer?.cancel();
+      }
+    });
+  }
+
+  void _onSearchQueryChanged(String query) {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 320), () {
+      _runSearch();
+    });
+  }
+
+  void _onSearchFilterChanged(String filter) {
+    setState(() {
+      _selectedSearchFilter = filter;
+    });
+    _runSearch();
+  }
+
+  Future<void> _runSearch() async {
+    final q = _searchController.text.trim();
+    if (q.isEmpty && _selectedSearchFilter == 'all') {
+      setState(() {
+        _searchResults = null;
+        _searchMatchIndex = -1;
+        _isSearchingRunning = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearchingRunning = true;
+    });
+
+    try {
+      final results = await _messages.searchMessages(
+        widget.roomId,
+        query: q.isEmpty ? null : q,
+        messageType:
+            _selectedSearchFilter == 'all' ? null : _selectedSearchFilter,
+        limit: 80,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _searchResults = results;
+        _searchMatchIndex = results.isNotEmpty ? 0 : -1;
+        _isSearchingRunning = false;
+      });
+
+      if (results.isNotEmpty) {
+        _jumpToMessage(results.first);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isSearchingRunning = false;
+        });
+      }
+    }
+  }
+
+  void _onPrevMatch() {
+    if (_searchResults == null || _searchResults!.isEmpty) return;
+    setState(() {
+      _searchMatchIndex =
+          (_searchMatchIndex - 1 + _searchResults!.length) % _searchResults!.length;
+    });
+    _jumpToMessage(_searchResults![_searchMatchIndex]);
+  }
+
+  void _onNextMatch() {
+    if (_searchResults == null || _searchResults!.isEmpty) return;
+    setState(() {
+      _searchMatchIndex = (_searchMatchIndex + 1) % _searchResults!.length;
+    });
+    _jumpToMessage(_searchResults![_searchMatchIndex]);
+  }
+
+  void _jumpToMessage(PokiMessage target) {
+    if (!_list.any((m) => m.id == target.id)) {
+      _olderMessages.add(target);
+      _rebuildMergedList();
+    }
+
+    final idx = _list.indexWhere((m) => m.id == target.id);
+    if (idx != -1 && _scrollController.hasClients) {
+      final targetOffset =
+          (idx * 72.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+
+    setState(() {
+      _highlightedMessageId = target.id;
+    });
+
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted && _highlightedMessageId == target.id) {
+        setState(() {
+          _highlightedMessageId = null;
+        });
+      }
+    });
   }
 
   void _setState(VoidCallback fn) {
@@ -616,7 +815,22 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                 streak: _room?.streakCount ?? 1,
                 onClosePocket: _confirmClosePocket,
                 onQuickAction: _handleQuickAction,
+                onSearchTap: _toggleSearch,
+                isSearching: _isSearchActive,
               ),
+              if (_isSearchActive)
+                ChatSearchBar(
+                  controller: _searchController,
+                  selectedFilter: _selectedSearchFilter,
+                  onFilterChanged: _onSearchFilterChanged,
+                  onQueryChanged: _onSearchQueryChanged,
+                  onClose: _toggleSearch,
+                  totalMatches: _searchResults?.length ?? 0,
+                  currentMatchIndex: _searchMatchIndex,
+                  onPrevMatch: _onPrevMatch,
+                  onNextMatch: _onNextMatch,
+                  isLoading: _isSearchingRunning,
+                ),
               Expanded(child: _buildMessages()),
               if (presence?.partnerTyping ?? false)
                 TypingPaws(name: _partner?.nickname ?? 'Karşı taraf'),
@@ -675,17 +889,75 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
         ),
       );
     }
+
+    final showTopIndicator = _loadingOlder || !_hasMoreOlder;
+    final totalCount = _list.length + (showTopIndicator ? 1 : 0);
+
     return ListView.builder(
+      controller: _scrollController,
       reverse: true, // liste en yeni mesaj ilk olacak şekilde geliyor
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: _list.length,
+      itemCount: totalCount,
       itemBuilder: (context, index) {
+        if (index == _list.length) {
+          if (_loadingOlder) {
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: PokiColors.primaryButton,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '🐾 Eski anılar getiriliyor...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: PokiColors.textOf(context).withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+          if (!_hasMoreOlder && _list.isNotEmpty) {
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('🌱', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'İkinizin ilk anısı burada başladı ✨',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: PokiColors.textOf(context).withOpacity(0.55),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        }
+
         final m = _list[index];
         final mine = m.senderId == _myId;
         return MessageBubble(
           key: ValueKey(m.id),
           message: m,
           isMine: mine,
+          isHighlighted: m.id == _highlightedMessageId,
           onFoggyRevealed: () => _onFoggyRevealed(m.id),
           onLongPress: () => _onMessageLongPress(m, mine),
           onSwipeReply: _startReply,
