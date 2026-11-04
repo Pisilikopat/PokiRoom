@@ -16,6 +16,8 @@ import '../../data/repositories/message_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/room_repository.dart';
 import '../../data/repositories/user_repository.dart';
+import '../../data/repositories/voice_repository.dart';
+import 'services/voice_recorder_service.dart';
 import '../../data/services/game_lobby_service.dart';
 import '../../data/services/room_presence.dart';
 import '../arcade/games_hub_screen.dart';
@@ -728,6 +730,27 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     }
   }
 
+  Future<void> _sendVoice(VoiceRecordResult result) async {
+    final replyInfo = _currentReplyInfo;
+    setState(() => _replyingTo = null);
+
+    try {
+      final voiceRepo = VoiceRepository();
+      final voiceData = await voiceRepo.prepareVoiceData(
+        roomId: widget.roomId,
+        bytes: result.bytes,
+        durationMs: result.durationMs,
+        waveform: result.waveform,
+      );
+
+      await _messages.sendVoice(widget.roomId, voiceData, reply: replyInfo);
+    } on PokiException catch (e) {
+      _snack(e.message);
+    } catch (_) {
+      _snack('Sesli mesaj gönderilemedi 🐱');
+    }
+  }
+
   Future<void> _confirmClosePocket() async {
     final partnerName = _partner?.nickname ?? 'karşı taraf';
     final confirmed = await showDialog<bool>(
@@ -836,6 +859,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                 TypingPaws(name: _partner?.nickname ?? 'Karşı taraf'),
               MessageInput(
                 onSend: _send,
+                onSendVoice: _sendVoice,
                 onTypingChanged: (typing) => presence?.setTyping(typing),
                 onOpenMenu: _openMenu,
                 replyInfo: _currentReplyInfo,

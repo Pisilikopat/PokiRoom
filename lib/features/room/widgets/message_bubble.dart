@@ -7,6 +7,7 @@ import '../../../core/utils/time_format.dart';
 import '../../../data/models/poki_message.dart';
 import '../../workshop/widgets/sticker_image.dart';
 import 'foggy_bubble.dart';
+import 'voice_message_bubble.dart';
 
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
@@ -75,8 +76,46 @@ class MessageBubble extends StatelessWidget {
           ? (isDark ? PokiColors.darkPrimary : PokiColors.primary)
           : (isDark ? PokiColors.darkIncomingBubble : PokiColors.incomingBubble);
 
-      // Çıkartma mesajı
-      if (message.type == 'sticker') {
+      // Sesli mesaj
+      if (message.type == 'voice') {
+        final voiceData = message.voiceData;
+        if (voiceData != null) {
+          content = Align(
+            alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+            child: GestureDetector(
+              onLongPress: onLongPress,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 320),
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  color: bubbleColor,
+                  borderRadius: PokiRadius.all,
+                  border: isHighlighted
+                      ? Border.all(color: const Color(0xFFFFB74D), width: 2.2)
+                      : null,
+                  boxShadow: isHighlighted
+                      ? [
+                          ...PokiShadows.softOf(context),
+                          const BoxShadow(
+                            color: Color(0x77FFB74D),
+                            blurRadius: 14,
+                            spreadRadius: 3,
+                          ),
+                        ]
+                      : PokiShadows.softOf(context),
+                ),
+                child: VoiceMessageBubble(
+                  voice: voiceData,
+                  isMine: isMine,
+                  meta: _meta(context),
+                ),
+              ),
+            ),
+          );
+        } else {
+          content = const SizedBox.shrink();
+        }
+      } else if (message.type == 'sticker') {
         content = Align(
           alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
           child: GestureDetector(

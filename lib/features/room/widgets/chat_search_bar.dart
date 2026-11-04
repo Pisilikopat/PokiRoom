@@ -32,6 +32,7 @@ class ChatSearchBar extends StatelessWidget {
   static const _filters = [
     ('all', '🐾 Tümü'),
     ('text', '📝 Yazılar'),
+    ('voice', '🎙️ Sesliler'),
     ('foggy', '🌫️ Buğulu'),
     ('sticker', '🐱 Çıkartmalar'),
   ];

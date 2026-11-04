@@ -1,6 +1,8 @@
 // lib/data/models/poki_message.dart
 import 'dart:convert';
 
+import 'poki_voice_data.dart';
+
 /// Yanıtlanan mesaja dair özet bilgi.
 class PokiReplyInfo {
   const PokiReplyInfo({
@@ -42,7 +44,7 @@ class PokiMessage {
   final String roomId;
   final String senderId;
 
-  /// 'text' | 'foggy' | 'doodle' | 'time_capsule' | 'sticker'
+  /// 'text' | 'foggy' | 'doodle' | 'time_capsule' | 'sticker' | 'voice'
   final String type;
   final String content;
   final bool isRead;
@@ -50,6 +52,16 @@ class PokiMessage {
   final DateTime? unlockAt;
 
   bool get isText => type == 'text';
+  bool get isVoice => type == 'voice';
+
+  PokiVoiceData? get voiceData {
+    if (!isVoice) return null;
+    try {
+      return PokiVoiceData.fromJson(cleanContent);
+    } catch (_) {
+      return null;
+    }
+  }
 
   static const String replyDelimiter = '\n«poki_reply:';
 

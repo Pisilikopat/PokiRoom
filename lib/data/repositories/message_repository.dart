@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/errors/poki_exception.dart';
 import '../models/poki_message.dart';
+import '../models/poki_voice_data.dart';
 
 class MessageRepository {
   MessageRepository([SupabaseClient? client])
@@ -88,6 +89,19 @@ class MessageRepository {
   /// Çıkartma mesajı: content = room_stickers.id
   Future<void> sendSticker(String roomId, String stickerId) =>
       _send(roomId, 'sticker', stickerId);
+
+  /// Sesli mesaj: content = PokiVoiceData.toJson()
+  Future<void> sendVoice(
+    String roomId,
+    PokiVoiceData voice, {
+    PokiReplyInfo? reply,
+  }) {
+    final jsonStr = voice.toJson();
+    final finalContent = reply != null
+        ? PokiMessage.formatWithReply(jsonStr, reply)
+        : jsonStr;
+    return _send(roomId, 'voice', finalContent);
+  }
 
   Future<void> _send(String roomId, String type, String text) async {
     final content = text.trim();
