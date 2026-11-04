@@ -182,6 +182,11 @@ class QuizEngine {
     );
   }
 
+  /// Oyunu erken sonlandırır (örneğin partner ayrıldığında).
+  void finishEarly() {
+    _phase = QuizPhase.finished;
+  }
+
   // --------------------------------------------------------- Mod A hamleleri
 
   /// Seçen taraf gerçeğini kilitler. [option] yalnızca kendi cihazında/simülasyonda verilir.

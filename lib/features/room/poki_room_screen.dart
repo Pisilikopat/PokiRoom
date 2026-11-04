@@ -20,6 +20,7 @@ import '../../data/services/game_lobby_service.dart';
 import '../../data/services/room_presence.dart';
 import '../arcade/games_hub_screen.dart';
 import '../memories/memories_screen.dart';
+import '../puzzle/puzzle_game_screen.dart';
 import '../puzzle/puzzle_setup_screen.dart';
 import '../quiz/logic/quiz_deck.dart';
 import '../quiz/quiz_game_screen.dart';
@@ -136,6 +137,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       _listen(presence.doodleInvites, _onDoodleInvite);
       GameLobbyService.instance.init(widget.roomId);
       _listen(GameLobbyService.instance.onQuizInvite, _onQuizInvite);
+      _listen(GameLobbyService.instance.onPuzzleInvite, _onPuzzleInvite);
       _listen(_users.watchMe(), (u) => _setState(() => _me = u));
       _listen(_users.watchUser(partnerId), (u) => _setState(() => _partner = u));
       _listen(_rooms.watchRoom(widget.roomId), (r) => _setState(() => _room = r));
@@ -246,6 +248,26 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     );
   }
 
+  void _onPuzzleInvite(PuzzleInvite invite) {
+    HapticFeedback.mediumImpact();
+    _showToast(
+      '🧩 ${invite.hostNickname} seni Poki Puzzle\'a çağırıyor 👉 Katıl',
+      duration: const Duration(seconds: 15),
+      onTap: () {
+        _hideToast();
+        GameLobbyService.instance.clearPuzzleInvite();
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => PuzzleGameScreen(
+              roomId: widget.roomId,
+              config: invite.config,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _handleQuickAction(String actionType) {
     HapticFeedback.mediumImpact();
     if (actionType == 'doodle') {
@@ -253,7 +275,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     } else if (actionType == 'quiz') {
       final invite = GameLobbyService.instance.activeQuizInvite;
       if (invite != null) {
-        GameLobbyService.instance.clearInvite();
+        GameLobbyService.instance.clearQuizInvite();
         Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => QuizGameScreen(
@@ -272,11 +294,24 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
         );
       }
     } else if (actionType == 'puzzle') {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => GamesHubScreen(roomId: widget.roomId),
-        ),
-      );
+      final invite = GameLobbyService.instance.activePuzzleInvite;
+      if (invite != null) {
+        GameLobbyService.instance.clearPuzzleInvite();
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => PuzzleGameScreen(
+              roomId: widget.roomId,
+              config: invite.config,
+            ),
+          ),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => GamesHubScreen(roomId: widget.roomId),
+          ),
+        );
+      }
     }
   }
 

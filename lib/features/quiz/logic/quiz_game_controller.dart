@@ -86,6 +86,14 @@ class QuizGameController extends ChangeNotifier {
     _afterChange();
   }
 
+  /// Oyunu erken bitir (partner ayrıldığında)
+  void finishEarly() {
+    _partnerTimer?.cancel();
+    _advanceTimer?.cancel();
+    engine.finishEarly();
+    notifyListeners();
+  }
+
   // ------------------------------------------------------------------ iç
 
   void _applyMove(QuizSide side, int option) {

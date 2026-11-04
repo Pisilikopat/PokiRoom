@@ -5,6 +5,8 @@ import '../../core/theme/poki_theme.dart';
 import '../../data/services/game_lobby_service.dart';
 import '../../data/services/room_presence.dart';
 import '../../shared/widgets/poki_card.dart';
+import '../puzzle/models/puzzle_config.dart';
+import '../puzzle/puzzle_game_screen.dart';
 import '../puzzle/puzzle_setup_screen.dart';
 import '../quiz/logic/quiz_deck.dart';
 import '../quiz/quiz_game_screen.dart';
@@ -35,7 +37,7 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
   }
 
   void _joinQuiz(QuizInvite invite) {
-    GameLobbyService.instance.clearInvite();
+    GameLobbyService.instance.clearQuizInvite();
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => QuizGameScreen(
@@ -43,6 +45,18 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
           config: invite.config,
           deck: QuizDeck(invite.questions),
           isHost: false,
+        ),
+      ),
+    );
+  }
+
+  void _joinPuzzle(PuzzleInvite invite) {
+    GameLobbyService.instance.clearPuzzleInvite();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PuzzleGameScreen(
+          roomId: widget.roomId,
+          config: invite.config,
         ),
       ),
     );
@@ -83,7 +97,9 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
         child: AnimatedBuilder(
           animation: GameLobbyService.instance,
           builder: (context, _) {
-            final activeInvite = GameLobbyService.instance.activeQuizInvite;
+            final activeQuiz = GameLobbyService.instance.activeQuizInvite;
+            final activePuzzle = GameLobbyService.instance.activePuzzleInvite;
+            final hasActive = activeQuiz != null || activePuzzle != null;
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -98,7 +114,7 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (activeInvite != null)
+                    if (hasActive)
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 2),
@@ -120,12 +136,23 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                if (activeInvite != null)
+                if (activeQuiz != null) ...[
                   _ActiveInviteCard(
-                    invite: activeInvite,
-                    onJoin: () => _joinQuiz(activeInvite),
-                  )
-                else
+                    invite: activeQuiz,
+                    onJoin: () => _joinQuiz(activeQuiz),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                if (activePuzzle != null) ...[
+                  _ActivePuzzleInviteCard(
+                    invite: activePuzzle,
+                    onJoin: () => _joinPuzzle(activePuzzle),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                if (!hasActive)
                   PokiCard(
                     color: PokiColors.surfaceOf(context),
                     child: Row(
@@ -168,29 +195,29 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // Poki Quiz Kartı
+                // Kart A: Poki Quiz
                 _GameLauncherCard(
-                  emoji: '🎯',
+                  emoji: '🧠',
                   title: 'Poki Quiz',
-                  badge: '2 Mod',
+                  badge: '2 Kişilik',
                   subtitle:
-                      'Aklımı Oku & Ruh İkizi modlarıyla birbirinizi ne kadar iyi tanıdığınızı test edin.',
-                  buttonLabel: 'Quiz Başlat ➔',
-                  color: PokiColors.primary.withOpacity(0.25),
+                      'Aklımı Oku veya Ruh İkizi modunda partnerini ne kadar tanıdığını test et.',
+                  buttonLabel: 'Quiz Başlat',
+                  color: PokiColors.primary.withOpacity(0.3),
                   onTap: _openQuizLobby,
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-                // Poki Puzzle Kartı
+                // Kart B: Poki Puzzle
                 _GameLauncherCard(
                   emoji: '🧩',
                   title: 'Poki Puzzle',
-                  badge: 'Co-Op',
+                  badge: 'Birlikte / Yarış',
                   subtitle:
-                      'Fotoğraflarınızı parçalara bölün ve anılarınızı birlikte birleştirin.',
-                  buttonLabel: 'Puzzle Başlat ➔',
-                  color: PokiColors.incomingBubbleOf(context).withOpacity(0.4),
+                      'Tatlı kedi resimlerini veya özel bir anınızı birlikte birleştirin.',
+                  buttonLabel: 'Puzzle Başlat',
+                  color: PokiColors.incomingBubble.withOpacity(0.5),
                   onTap: _openPuzzleSetup,
                 ),
               ],
@@ -203,7 +230,10 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
 }
 
 class _ActiveInviteCard extends StatelessWidget {
-  const _ActiveInviteCard({required this.invite, required this.onJoin});
+  const _ActiveInviteCard({
+    required this.invite,
+    required this.onJoin,
+  });
 
   final QuizInvite invite;
   final VoidCallback onJoin;
@@ -212,21 +242,43 @@ class _ActiveInviteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return PokiCard(
-      color: PokiColors.primaryButton.withOpacity(0.2),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: PokiColors.primary.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: PokiColors.primaryButton.withOpacity(0.6),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: PokiColors.primaryButton.withOpacity(0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text('🎯', style: TextStyle(fontSize: 32)),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: PokiColors.primaryButton,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text('🎮', style: TextStyle(fontSize: 20)),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${invite.hostNickname} Poki Quiz başlattı!',
+                      '${invite.hostNickname} Seni Bekliyor!',
                       style: textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -252,6 +304,89 @@ class _ActiveInviteCard extends StatelessWidget {
               label: const Text('Hemen Katıl 🚀'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: PokiColors.primaryButton,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivePuzzleInviteCard extends StatelessWidget {
+  const _ActivePuzzleInviteCard({
+    required this.invite,
+    required this.onJoin,
+  });
+
+  final PuzzleInvite invite;
+  final VoidCallback onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final d = invite.config.difficulty;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFFB74D), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF9800),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text('🧩', style: TextStyle(fontSize: 20)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${invite.hostNickname} Puzzle Başlattı!',
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${d.pieceCount} Parça · Mod: ${invite.config.mode.label}',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: PokiColors.textOf(context).withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onJoin,
+              icon: const Icon(Icons.extension_rounded),
+              label: const Text('Katıl ve Çözmeye Başla 🧩'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF9800),
                 foregroundColor: Colors.white,
               ),
             ),
@@ -302,7 +437,8 @@ class _GameLauncherCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: PokiColors.surfaceOf(context),
                   borderRadius: BorderRadius.circular(10),

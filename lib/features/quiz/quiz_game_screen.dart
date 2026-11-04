@@ -1,7 +1,9 @@
 // lib/features/quiz/quiz_game_screen.dart
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/poki_theme.dart';
@@ -45,6 +47,8 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
 
   late final QuizGameController _controller;
   QuizSync? _sync;
+  StreamSubscription<void>? _abandonSub;
+  bool _abandonDialogShown = false;
 
   @override
   void initState() {
@@ -58,6 +62,7 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
         myId: myId,
         isHost: widget.isHost,
       );
+      _abandonSub = _sync?.onAbandon.listen((_) => _onPartnerLeft());
     }
 
     _controller = QuizGameController(
@@ -69,6 +74,107 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
     RoomPresence.current?.setActivity(
       widget.isHost ? PokiActivity.inQuizWaiting : PokiActivity.inQuizPlaying,
     );
+  }
+
+  void _onPartnerLeft() {
+    if (!mounted || _abandonDialogShown) return;
+    _abandonDialogShown = true;
+    HapticFeedback.heavyImpact();
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Text('😿', style: TextStyle(fontSize: 26)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Partnerin Ayrıldı',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Arkadaşın oyundan çıktı veya bağlantısı kesildi 🐾\n\nO ana kadarki skorlarla sonuçlara göz atabilir veya sohbete geri dönebilirsin.',
+          style: TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Sohbete Dön',
+                style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: PokiColors.primaryButton,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _controller.finishEarly();
+              _navigate();
+            },
+            child: const Text('Sonuçları Gör 🏆'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _confirmExit() async {
+    final eng = _controller.engine;
+    if (eng.phase == QuizPhase.finished) return true;
+
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Text('🐾', style: TextStyle(fontSize: 24)),
+            SizedBox(width: 8),
+            Text('Oyundan Çıkılsın mı?'),
+          ],
+        ),
+        content: const Text(
+          'Oyundan ayrılırsan oyun sonlanacak ve karşı taraf da oyundan çıkacak.\n\nEmin misin?',
+          style: TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Devam Et', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade400,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Evet, Ayrıl'),
+          ),
+        ],
+      ),
+    );
+
+    if (leave == true) {
+      _sync?.sendAbandon();
+      return true;
+    }
+    return false;
   }
 
   List<QuizQuestion> _buildQuestions() {
@@ -112,6 +218,7 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
   @override
   void dispose() {
     RoomPresence.current?.setActivity(PokiActivity.chatting);
+    _abandonSub?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -125,91 +232,67 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
       final rec = eng.lastRecord;
       if (rec == null) return OptionVisual.idle;
 
-      final myPick = rec.myPick;
-      final partnerPick = rec.partnerPick;
+      final isMePick = rec.myPick == i;
+      final isPartnerPick = rec.partnerPick == i;
 
       if (eng.mode == QuizMode.readMyMind) {
-        final chooserPick = eng.chooser == QuizSide.me ? myPick : partnerPick;
-        final guesserPick = eng.chooser == QuizSide.me ? partnerPick : myPick;
+        final isActual = eng.chooser == QuizSide.me ? isMePick : isPartnerPick;
+        final isGuess = eng.chooser == QuizSide.me ? isPartnerPick : isMePick;
 
-        if (i == chooserPick) return OptionVisual.correct;
-        if (i == guesserPick && !rec.matched) return OptionVisual.wrong;
-        return OptionVisual.idle;
+        if (isActual && isGuess) return OptionVisual.bothPicked;
+        if (isActual) return OptionVisual.correct;
+        if (isGuess) return OptionVisual.wrong;
       } else {
-        if (rec.matched) {
-          if (i == myPick) return OptionVisual.correct;
-        } else {
-          if (i == myPick) return OptionVisual.wrong;
-          if (i == partnerPick) return OptionVisual.correct;
-        }
-        return OptionVisual.idle;
+        if (isMePick && isPartnerPick) return OptionVisual.bothPicked;
+        if (isMePick) return OptionVisual.iPicked;
+        if (isPartnerPick) return OptionVisual.partnerPicked;
       }
-    }
 
-    if (eng.hasLocked(QuizSide.partner) && !eng.hasLocked(QuizSide.me)) {
-      if (mySelection == i) return OptionVisual.selected;
-      return OptionVisual.fogged;
-    }
-
-    if (eng.hasLocked(QuizSide.me)) {
-      if (i == mySelection) return OptionVisual.lockedMine;
       return OptionVisual.idle;
     }
 
-    return mySelection == i ? OptionVisual.selected : OptionVisual.idle;
+    if (mySelection == i) {
+      return eng.hasLocked(QuizSide.me)
+          ? OptionVisual.locked
+          : OptionVisual.selected;
+    }
+
+    return OptionVisual.idle;
   }
 
   String get _roleBanner {
+    final eng = _controller.engine;
+    if (eng.mode == QuizMode.readMyMind) {
+      if (eng.phase == QuizPhase.choosing) {
+        return eng.chooser == QuizSide.me
+            ? 'Senin sıran: Gerçeği seç'
+            : 'Partnerin gerçeğini seçiyor...';
+      }
+      if (eng.phase == QuizPhase.guessing) {
+        return eng.chooser == QuizSide.me
+            ? 'Partnerin tahmin ediyor...'
+            : 'Senin sıran: Tahmin et';
+      }
+    }
+    return 'İkiniz de size uyan şıkkı seçin';
+  }
+
+  Widget? get _bottomPanel {
     final eng = _controller.engine;
     final phase = eng.phase;
 
     if (phase == QuizPhase.revealed) {
       final rec = eng.lastRecord;
-      if (rec == null) return '';
-      if (eng.mode == QuizMode.readMyMind) {
-        return rec.matched
-            ? '✨ Doğru tahmin! +10 Pati Puanı'
-            : '🙈 Yanlış tahmin...';
-      } else {
-        return rec.matched ? '💖 Ruh İkizisiniz!' : '🐱 Zıt kutuplar...';
-      }
-    }
-
-    if (phase == QuizPhase.finished) return '🎉 Oyun bitti!';
-
-    if (eng.mode == QuizMode.readMyMind) {
-      if (phase == QuizPhase.choosing) {
-        return eng.chooser == QuizSide.me
-            ? 'Sıra sende: gerçeğini seç 🔒 (partner tahmin edecek)'
-            : 'Partner gerçeğini seçiyor... 🔮';
-      }
-      if (phase == QuizPhase.guessing) {
-        return eng.guesser == QuizSide.me
-            ? 'Partnerin ne seçtiğini tahmin et! 🤔'
-            : 'Sen seçtin, partner tahmin ediyor... 🐾';
-      }
-    }
-
-    if (eng.hasLocked(QuizSide.me)) {
-      return 'Seçimin kilitlendi 🔒 Partner bekleniyor...';
-    }
-    return 'İkiniz de seçin, sonra buğu kalkacak 🌫️';
-  }
-
-  Widget? get _bottomPanel {
-    final phase = _controller.engine.phase;
-    final rec = _controller.engine.lastRecord;
-
-    if (phase == QuizPhase.revealed && rec != null) {
-      if (_controller.engine.mode == QuizMode.readMyMind) {
-        return ReactionCat(
-          reaction: rec.matched ? CatReaction.correct : CatReaction.wrong,
-        );
-      } else {
-        return ReactionCat(
-          reaction: rec.matched ? CatReaction.soulmates : CatReaction.opposites,
-        );
-      }
+      if (rec == null) return null;
+      return ReactionCat(
+        matched: rec.matched,
+        celebration: eng.mode == QuizMode.soulmates
+            ? 'Ruh İkizi!'
+            : 'Doğru Tahmin!',
+        consolation: eng.mode == QuizMode.soulmates
+            ? 'Zıt Kutuplar...'
+            : 'Tüh, Bilemedin!',
+      );
     }
 
     if (_controller.partnerThinking) return const ThinkingCat();
@@ -246,65 +329,84 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
         final question = eng.question;
         final canAct = eng.canAct(QuizSide.me);
 
-        return Scaffold(
-          backgroundColor: QuizPalette.background(context),
-          appBar: AppBar(
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (didPop) return;
+            final canExit = await _confirmExit();
+            if (canExit && mounted) {
+              Navigator.of(context).pop();
+            }
+          },
+          child: Scaffold(
             backgroundColor: QuizPalette.background(context),
-            foregroundColor: QuizPalette.text(context),
-            title: Text(
-              '${eng.mode.emoji} ${eng.mode.label}',
-              style: QuizPalette.title(context),
+            appBar: AppBar(
+              backgroundColor: QuizPalette.background(context),
+              foregroundColor: QuizPalette.text(context),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                onPressed: () async {
+                  final canExit = await _confirmExit();
+                  if (canExit && mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+              title: Text(
+                '${eng.mode.emoji} ${eng.mode.label}',
+                style: QuizPalette.title(context),
+              ),
             ),
-          ),
-          body: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                _ScoreBar(controller: _controller),
-                const SizedBox(height: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: QuizPalette.sage(context),
-                    borderRadius: PokiRadius.all,
-                  ),
-                  child: Text(_roleBanner, style: QuizPalette.body(context)),
-                ),
-                const SizedBox(height: 12),
-                QuestionCard(
-                  question: question,
-                  index: eng.index + 1,
-                  total: eng.total,
-                ),
-                const SizedBox(height: 16),
-                for (var i = 0; i < question.options.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: AnswerOptionTile(
-                      letter: _letters[i],
-                      text: question.options[i],
-                      visual: _visualFor(i),
-                      onTap: canAct ? () => _controller.select(i) : null,
+            body: SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _ScoreBar(controller: _controller),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: QuizPalette.sage(context),
+                      borderRadius: PokiRadius.all,
                     ),
+                    child: Text(_roleBanner, style: QuizPalette.body(context)),
                   ),
-                const SizedBox(height: 8),
-                if (canAct && _controller.canLock)
-                  ElevatedButton.icon(
-                    onPressed: _controller.lockMine,
-                    icon: const Icon(Icons.lock_rounded),
-                    label: const Text('Seçimi Kilitle'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: QuizPalette.primary(context),
-                      foregroundColor: Colors.white,
-                    ),
+                  const SizedBox(height: 12),
+                  QuestionCard(
+                    question: question,
+                    index: eng.index + 1,
+                    total: eng.total,
                   ),
-                if (_bottomPanel != null) ...[
                   const SizedBox(height: 16),
-                  Center(child: _bottomPanel),
+                  for (var i = 0; i < question.options.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: AnswerOptionTile(
+                        letter: _letters[i],
+                        text: question.options[i],
+                        visual: _visualFor(i),
+                        onTap: canAct ? () => _controller.select(i) : null,
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  if (canAct && _controller.canLock)
+                    ElevatedButton.icon(
+                      onPressed: _controller.lockMine,
+                      icon: const Icon(Icons.lock_rounded),
+                      label: const Text('Seçimi Kilitle'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuizPalette.primary(context),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  if (_bottomPanel != null) ...[
+                    const SizedBox(height: 16),
+                    Center(child: _bottomPanel),
+                  ],
+                  const SizedBox(height: 20),
                 ],
-                const SizedBox(height: 20),
-              ],
+              ),
             ),
           ),
         );

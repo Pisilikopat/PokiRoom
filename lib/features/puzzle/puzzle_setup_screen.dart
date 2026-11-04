@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/poki_theme.dart';
+import '../../data/repositories/user_repository.dart';
+import '../../data/services/game_lobby_service.dart';
+import '../../data/services/room_presence.dart';
 import 'models/puzzle_config.dart';
 import 'models/puzzle_difficulty.dart';
 import 'models/puzzle_image_selection.dart';
@@ -22,18 +25,47 @@ class PuzzleSetupScreen extends StatefulWidget {
 }
 
 class _PuzzleSetupScreenState extends State<PuzzleSetupScreen> {
+  final _users = UserRepository();
   PuzzleImageSelection? _image;
   PuzzleDifficulty _difficulty = PuzzleDifficulty.recommended;
   PuzzleMode _mode = PuzzleMode.coop;
+  bool _starting = false;
 
-  void _start() {
+  @override
+  void initState() {
+    super.initState();
+    GameLobbyService.instance.init(widget.roomId);
+  }
+
+  Future<void> _start() async {
     final image = _image;
-    if (image == null) return;
+    if (image == null || _starting) return;
+    setState(() => _starting = true);
+
+    final config = PuzzleConfig(
+      image: image,
+      difficulty: _difficulty,
+      mode: _mode,
+    );
+
+    try {
+      final me = await _users.fetchMe();
+      await GameLobbyService.instance.sendPuzzleInvite(
+        config: config,
+        myNickname: me.nickname,
+      );
+    } catch (_) {}
+
+    RoomPresence.current?.setActivity(PokiActivity.inPuzzleWaiting);
+
+    if (!mounted) return;
+    setState(() => _starting = false);
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PuzzleGameScreen(
           roomId: widget.roomId,
-          config: PuzzleConfig(image: image, difficulty: _difficulty, mode: _mode),
+          config: config,
         ),
       ),
     );
@@ -86,9 +118,20 @@ class _PuzzleSetupScreenState extends State<PuzzleSetupScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: _image == null ? null : _start,
-                  icon: const Icon(Icons.extension_rounded),
-                  label: Text(_image == null ? 'Önce bir görsel seç' : 'Oyunu Başlat'),
+                  onPressed: (_image == null || _starting) ? null : _start,
+                  icon: _starting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.extension_rounded),
+                  label: Text(_image == null
+                      ? 'Önce bir görsel seç'
+                      : (_starting ? 'Lobi Kuruluyor...' : 'Oyunu Başlat')),
                 ),
               ),
             ),
@@ -101,23 +144,19 @@ class _PuzzleSetupScreenState extends State<PuzzleSetupScreen> {
 
 class _Section extends StatelessWidget {
   const _Section({required this.title, required this.child});
-
   final String title;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 12),
+          Text(title, style: theme.textTheme.titleMedium),
+          const SizedBox(height: 10),
           child,
         ],
       ),

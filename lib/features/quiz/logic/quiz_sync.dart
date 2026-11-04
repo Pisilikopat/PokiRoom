@@ -26,8 +26,13 @@ class QuizSync {
   RealtimeChannel? _channel;
   QuizGameController? _controller;
   bool _disposed = false;
+  bool _everSawPartner = false;
 
   final ValueNotifier<bool> partnerPresent = ValueNotifier(false);
+
+  final StreamController<void> _abandonEvents =
+      StreamController<void>.broadcast();
+  Stream<void> get onAbandon => _abandonEvents.stream;
 
   void attach(QuizGameController controller) {
     _controller = controller;
@@ -41,6 +46,7 @@ class QuizSync {
         .onBroadcast(event: 'quiz_move', callback: _onRemoteMove)
         .onBroadcast(event: 'quiz_reveal', callback: _onRemoteReveal)
         .onBroadcast(event: 'quiz_advance', callback: _onRemoteAdvance)
+        .onBroadcast(event: 'quiz_abandon', callback: _onRemoteAbandon)
         .subscribe((status, error) async {
       if (status == RealtimeSubscribeStatus.subscribed) {
         await _channel?.track({'here': true, 'host': isHost});
@@ -57,6 +63,16 @@ class QuizSync {
         break;
       }
     }
+
+    if (partnerHere) {
+      _everSawPartner = true;
+    } else if (_everSawPartner && !partnerHere) {
+      // Partner daha önce bağlıydı ama şimdi düştü/çıktı!
+      if (!_disposed && !_abandonEvents.isClosed) {
+        _abandonEvents.add(null);
+      }
+    }
+
     partnerPresent.value = partnerHere;
   }
 
@@ -90,6 +106,11 @@ class QuizSync {
   /// Sıradaki soruya geç
   void sendAdvance() {
     _send('quiz_advance', {});
+  }
+
+  /// Oyundan ayrılma bildirimi
+  void sendAbandon() {
+    _send('quiz_abandon', {'reason': 'player_left'});
   }
 
   void _send(String event, Map<String, dynamic> payload) {
@@ -175,8 +196,20 @@ class QuizSync {
     c.handleRemoteAdvance();
   }
 
+  void _onRemoteAbandon(Map<String, dynamic> payload) {
+    final nested = payload['payload'];
+    final data = nested is Map ? nested.cast<String, dynamic>() : payload;
+    if (data['from'] == myId) return;
+
+    if (!_disposed && !_abandonEvents.isClosed) {
+      _abandonEvents.add(null);
+    }
+  }
+
   void dispose() {
     _disposed = true;
+    _abandonEvents.close();
+    partnerPresent.dispose();
     if (_channel != null) {
       _db.removeChannel(_channel!);
       _channel = null;
