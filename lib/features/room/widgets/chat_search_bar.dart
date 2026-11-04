@@ -65,12 +65,10 @@ class ChatSearchBar extends StatelessWidget {
                     child: Container(
                       height: 42,
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? PokiColors.darkCard
-                            : PokiColors.background,
+                        color: PokiColors.backgroundOf(context),
                         borderRadius: BorderRadius.circular(21),
                         border: Border.all(
-                          color: PokiColors.borderOf(context),
+                          color: PokiColors.textOf(context).withOpacity(0.12),
                           width: 1,
                         ),
                       ),
@@ -147,14 +145,12 @@ class ChatSearchBar extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? PokiColors.primaryButton
-                              : (isDark
-                                  ? PokiColors.darkCard
-                                  : PokiColors.background),
+                              : PokiColors.backgroundOf(context),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isSelected
                                 ? PokiColors.primaryButton
-                                : PokiColors.borderOf(context),
+                                : PokiColors.textOf(context).withOpacity(0.12),
                             width: 1,
                           ),
                         ),
@@ -186,9 +182,7 @@ class ChatSearchBar extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? PokiColors.darkCard.withOpacity(0.7)
-                        : PokiColors.card.withOpacity(0.7),
+                    color: PokiColors.backgroundOf(context).withOpacity(0.85),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
