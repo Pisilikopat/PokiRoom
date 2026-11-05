@@ -88,11 +88,17 @@ class MessageRepository {
     required String spot,
     required String bittenName,
     required String senderName,
+    String? title,
+    String? phrase,
+    String? emoji,
   }) {
     final content = PokiBiteData.format(
       spot: spot,
       bittenName: bittenName,
       senderName: senderName,
+      title: title,
+      phrase: phrase,
+      emoji: emoji,
     );
     return _send(roomId, 'text', content);
   }

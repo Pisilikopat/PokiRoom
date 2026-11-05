@@ -627,21 +627,28 @@ class _HoldableCatAvatarState extends State<_HoldableCatAvatar>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pressController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 650),
+    duration: const Duration(milliseconds: 1250), // Daha uzun ve gerilim dolu basılı tutma
   );
 
   bool _isPressing = false;
   bool _biteTriggered = false;
+  DateTime? _downTime;
+  bool _hapticStage1 = false;
+  bool _hapticStage2 = false;
 
   @override
   void initState() {
     super.initState();
     _pressController.addListener(() {
-      // 320ms ara haptik feedback (basılı tutarken hissedilen hafif nabız)
-      if (_isPressing &&
-          !_biteTriggered &&
-          _pressController.value >= 0.50 &&
-          _pressController.value < 0.55) {
+      final progress = _pressController.value;
+      // 1. Kademe haptik (%35 civarı ~430ms)
+      if (_isPressing && !_biteTriggered && progress >= 0.35 && !_hapticStage1) {
+        _hapticStage1 = true;
+        HapticFeedback.selectionClick();
+      }
+      // 2. Kademe haptik (%70 civarı ~870ms)
+      if (_isPressing && !_biteTriggered && progress >= 0.70 && !_hapticStage2) {
+        _hapticStage2 = true;
         HapticFeedback.lightImpact();
       }
     });
@@ -651,7 +658,7 @@ class _HoldableCatAvatarState extends State<_HoldableCatAvatar>
         _biteTriggered = true;
         HapticFeedback.heavyImpact();
         widget.onBite();
-        // Hızlıca eski haline yaylan
+        // Hızlıca neşeyle eski haline yaylan
         _pressController.reverse();
       }
     });
@@ -666,15 +673,34 @@ class _HoldableCatAvatarState extends State<_HoldableCatAvatar>
   void _onTapDown(TapDownDetails details) {
     _isPressing = true;
     _biteTriggered = false;
+    _hapticStage1 = false;
+    _hapticStage2 = false;
+    _downTime = DateTime.now();
     HapticFeedback.selectionClick();
     _pressController.forward();
   }
 
-  void _cancelPress() {
+  void _cancelPress(BuildContext context) {
     if (!_isPressing) return;
     _isPressing = false;
+    final elapsed = _downTime != null
+        ? DateTime.now().difference(_downTime!).inMilliseconds
+        : 0;
+
     if (!_biteTriggered) {
       _pressController.reverse();
+      // Çok kısa basıp çektiyse bilgilendirme ipucu
+      if (elapsed > 100 && elapsed < 600) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              duration: Duration(milliseconds: 1400),
+              behavior: SnackBarBehavior.floating,
+              content: Text('Isırmak için 1 saniye basılı tut 🦷🐾'),
+            ),
+          );
+      }
     }
   }
 
@@ -682,24 +708,34 @@ class _HoldableCatAvatarState extends State<_HoldableCatAvatar>
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: _onTapDown,
-      onTapUp: (_) => _cancelPress(),
-      onTapCancel: _cancelPress,
+      onTapUp: (_) => _cancelPress(context),
+      onTapCancel: () => _cancelPress(context),
       behavior: HitTestBehavior.opaque,
       child: AnimatedBuilder(
         animation: _pressController,
         builder: (context, child) {
           final progress = _pressController.value;
-          // Basılı tutarken mochi gibi tatlıca içeri büzülür (1.0 -> 0.88), ısırdıktan sonra geri yaylanır
+          // Basılı tutarken mochi gibi tatlıca içeri büzülür (1.0 -> 0.86), ısırdıktan sonra geri yaylanır
           final scale = _biteTriggered
-              ? 1.0 + (1.0 - progress) * 0.14
-              : 1.0 - (progress * 0.12);
+              ? 1.0 + (1.0 - progress) * 0.16
+              : 1.0 - (progress * 0.14);
+
+          String hintText = 'Pusuya yattı...';
+          String hintIcon = '🐾';
+          if (progress >= 0.82) {
+            hintText = 'HAM GELİYOR! 🐾';
+            hintIcon = '🦷';
+          } else if (progress >= 0.50) {
+            hintText = 'Hedefe kilitlendi...';
+            hintIcon = '🎯';
+          }
 
           return Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
             children: [
               // Basılı tutarken etrafta dönüp dolan pembe enerji halkası
-              if (_isPressing && progress > 0.05)
+              if (_isPressing && progress > 0.04)
                 Positioned.fill(
                   child: CustomPaint(
                     painter: _ChargeRingPainter(progress: progress),
@@ -712,35 +748,40 @@ class _HoldableCatAvatarState extends State<_HoldableCatAvatar>
                 child: widget.child,
               ),
 
-              // Basılı tutarken yukarıda beliren mini ipucu hapı
-              if (_isPressing && progress > 0.28 && !_biteTriggered)
+              // Basılı tutarken yukarıda beliren aşamalı mini ipucu hapı
+              if (_isPressing && progress > 0.20 && !_biteTriggered)
                 Positioned(
                   top: -24,
                   child: Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF8DA1), Color(0xFFFF6F91)],
+                      gradient: LinearGradient(
+                        colors: progress >= 0.82
+                            ? [const Color(0xFFFF5252), const Color(0xFFFF1744)]
+                            : [const Color(0xFFFF8DA1), const Color(0xFFFF6F91)],
                       ),
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
+                      boxShadow: [
                         BoxShadow(
-                          color: Color(0x33FF6F91),
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
+                          color: (progress >= 0.82
+                                  ? const Color(0xFFFF1744)
+                                  : const Color(0xFFFF6F91))
+                              .withOpacity(0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('🦷', style: TextStyle(fontSize: 10)),
-                        const SizedBox(width: 3),
+                        Text(hintIcon, style: const TextStyle(fontSize: 10)),
+                        const SizedBox(width: 4),
                         Text(
-                          progress > 0.80 ? 'HAM! 🐾' : 'Isırılıyor...',
+                          hintText,
                           style: const TextStyle(
-                            fontSize: 10,
+                            fontSize: 10.5,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),

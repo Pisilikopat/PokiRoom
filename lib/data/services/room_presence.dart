@@ -138,9 +138,15 @@ class BiteEvent {
   const BiteEvent({
     required this.nickname,
     this.spot = 'yanak',
+    this.title,
+    this.phrase,
+    this.emoji,
   });
   final String nickname;
   final String spot;
+  final String? title;
+  final String? phrase;
+  final String? emoji;
 }
 
 /// Supabase Realtime ile:
@@ -266,11 +272,17 @@ class RoomPresence extends ChangeNotifier with WidgetsBindingObserver {
     if (data['from'] == myId) return;
     final name = (data['nickname'] as String?)?.trim();
     final spot = (data['spot'] as String?)?.trim() ?? 'yanak';
+    final title = data['title'] as String?;
+    final phrase = data['phrase'] as String?;
+    final emoji = data['emoji'] as String?;
     myHasBandage = true;
     if (!_disposed && !_bites.isClosed) {
       _bites.add(BiteEvent(
         nickname: (name == null || name.isEmpty) ? 'Partnerin' : name,
         spot: spot,
+        title: title,
+        phrase: phrase,
+        emoji: emoji,
       ));
       notifyListeners();
     }
@@ -298,7 +310,13 @@ class RoomPresence extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> sendDoodleInvite(String myNickname) =>
       _broadcast(_inviteEvent, myNickname);
 
-  Future<void> sendBite(String myNickname, {String spot = 'yanak'}) async {
+  Future<void> sendBite(
+    String myNickname, {
+    String spot = 'yanak',
+    String? title,
+    String? phrase,
+    String? emoji,
+  }) async {
     partnerHasBandage = true;
     notifyListeners();
     await _channel?.sendBroadcastMessage(
@@ -307,6 +325,9 @@ class RoomPresence extends ChangeNotifier with WidgetsBindingObserver {
         'from': myId,
         'nickname': myNickname,
         'spot': spot,
+        'title': title,
+        'phrase': phrase,
+        'emoji': emoji,
       },
     );
   }

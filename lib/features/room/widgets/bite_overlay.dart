@@ -13,11 +13,17 @@ class BiteOverlay extends StatefulWidget {
     required this.senderName,
     required this.onDone,
     this.spot = 'yanak',
+    this.title,
+    this.phrase,
+    this.emoji,
   });
 
   final String senderName;
   final VoidCallback onDone;
   final String spot;
+  final String? title;
+  final String? phrase;
+  final String? emoji;
 
   @override
   State<BiteOverlay> createState() => _BiteOverlayState();
@@ -163,24 +169,29 @@ class _BiteOverlayState extends State<BiteOverlay>
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('🦷', style: TextStyle(fontSize: 22)),
+                              Text(
+                                widget.emoji ?? '🦷',
+                                style: const TextStyle(fontSize: 22),
+                              ),
                               const SizedBox(width: 8),
                               Text(
-                                'HAM! 🐾',
+                                widget.title ?? 'HAM! 🐾',
                                 style: GoogleFonts.fredoka(
-                                  fontSize: 24,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
-                                  letterSpacing: 1.2,
+                                  letterSpacing: 0.8,
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${widget.senderName} seni tatlıca ısırdı!',
+                            widget.phrase ??
+                                '${widget.senderName} seni tatlıca ısırdı!',
+                            textAlign: TextAlign.center,
                             style: GoogleFonts.fredoka(
-                              fontSize: 14,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: Colors.white.withOpacity(0.95),
                             ),
@@ -189,7 +200,7 @@ class _BiteOverlayState extends State<BiteOverlay>
                           Text(
                             'Ayy acımadı ki... 🩹💖',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w500,
                               color: Colors.white.withOpacity(0.85),
                             ),

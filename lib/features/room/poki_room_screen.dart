@@ -449,7 +449,9 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       _incomingBite = event;
       _biteBurstId = ++_biteCounter;
     });
-    _showToast('🐱 ${event.nickname} seni tatlıca ısırdı! Ham! 🦷');
+    final title = event.title ?? 'Tatlı Isırık';
+    final emoji = event.emoji ?? '🦷';
+    _showToast('$emoji ${event.nickname} seni ısırdı: $title! 🩹');
   }
 
   void _onDoodleInvite(PokeEvent event) {
@@ -631,29 +633,41 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     }
   }
 
-  Future<void> _sendBite({String spot = 'yanak'}) async {
+  Future<void> _sendBite({String? spot}) async {
     final now = DateTime.now();
     final last = _lastPokeSent;
-    if (last != null && now.difference(last) < const Duration(milliseconds: 1200)) {
+    if (last != null &&
+        now.difference(last) < const Duration(milliseconds: 1200)) {
       _snack('Biraz yavaş, kedi nefes alsın 🐾');
       return;
     }
     _lastPokeSent = now;
+    final scenario = PokiBiteScenario.getRandom();
+    final finalSpot = spot ?? scenario.spot;
     final myNick = _me?.nickname ?? 'Biri';
     final partnerNick = _partner?.nickname ?? 'Karşı taraf';
     try {
-      await _presence?.sendBite(myNick, spot: spot);
+      await _presence?.sendBite(
+        myNick,
+        spot: finalSpot,
+        title: scenario.title,
+        phrase: scenario.phrase,
+        emoji: scenario.emoji,
+      );
       await _messages.sendBite(
         widget.roomId,
-        spot: spot,
+        spot: finalSpot,
         bittenName: partnerNick,
         senderName: myNick,
+        title: scenario.title,
+        phrase: scenario.phrase,
+        emoji: scenario.emoji,
       );
       NotificationRepository.instance.notifyPartner(
         roomId: widget.roomId,
         type: NotificationType.poke,
       );
-      _snack('$partnerNick tatlıca ısırıldı! 🦷🐾');
+      _snack('${scenario.emoji} ${scenario.title} yapıldı! 🐾');
     } catch (_) {
       _snack('Isırık gönderilemedi, tekrar dener misin?');
     }
@@ -1041,6 +1055,9 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                 key: ValueKey('bite_$_biteBurstId'),
                 senderName: _incomingBite!.nickname,
                 spot: _incomingBite!.spot,
+                title: _incomingBite!.title,
+                phrase: _incomingBite!.phrase,
+                emoji: _incomingBite!.emoji,
                 onDone: () => _setState(() => _incomingBite = null),
               ),
             ),

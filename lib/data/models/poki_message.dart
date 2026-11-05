@@ -1,5 +1,6 @@
 // lib/data/models/poki_message.dart
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'poki_voice_data.dart';
 
@@ -107,17 +108,130 @@ class PokiMessage {
       );
 }
 
+/// Yaratıcı tatlı ısırık senaryoları.
+class PokiBiteScenario {
+  const PokiBiteScenario({
+    required this.emoji,
+    required this.title,
+    required this.phrase,
+    this.spot = 'yanak',
+  });
+
+  final String emoji;
+  final String title;
+  final String phrase;
+  final String spot;
+
+  static const List<PokiBiteScenario> all = [
+    PokiBiteScenario(
+      emoji: '🥟',
+      title: 'Pofuduk Yanak Isırığı',
+      phrase: 'Hamur gibi yanakların varmış, dayanamadım ham yaptım!',
+      spot: 'yanak',
+    ),
+    PokiBiteScenario(
+      emoji: '👃',
+      title: 'Burun Ucu Kırtlaması',
+      phrase: 'Boop! + Ham! Kaçamazsın, yakaladım!',
+      spot: 'burun',
+    ),
+    PokiBiteScenario(
+      emoji: '👂',
+      title: 'Kulağa Fısıltılı Isırık',
+      phrase: 'Kulağına "Seni çok seviyorum" diye fısıldayıp ısırdım!',
+      spot: 'kulak',
+    ),
+    PokiBiteScenario(
+      emoji: '🍞',
+      title: 'Tost Ekmeği Kenarı Isırığı',
+      phrase: 'Çıtır çıtır, sıcacık bir sevgi ısırığı!',
+      spot: 'yanak',
+    ),
+    PokiBiteScenario(
+      emoji: '🧛',
+      title: 'Minik Vampir Kedi Saldırısı',
+      phrase: 'Hırr... Kanını değil, sevgini emmeye geldim!',
+      spot: 'boyun',
+    ),
+    PokiBiteScenario(
+      emoji: '🍓',
+      title: 'Çilekli Donut Isırığı',
+      phrase: 'Aşırı tatlısın, şeker krizine girdim bir parça aldım!',
+      spot: 'yanak',
+    ),
+    PokiBiteScenario(
+      emoji: '🐾',
+      title: 'Oyunbaz Pati Kemirmesi',
+      phrase: 'Kediler gibi sevgiden delirip kıtlama anı!',
+      spot: 'pati',
+    ),
+    PokiBiteScenario(
+      emoji: '☁️',
+      title: 'Bulut Gibi Hafif Isırık',
+      phrase: 'Hiç acıtmayan, sadece sevgi ve öpücük bulaştıran cinsten!',
+      spot: 'yanak',
+    ),
+    PokiBiteScenario(
+      emoji: '🦁',
+      title: 'Vahşi Aslan Yavrusu Hamlaması',
+      phrase: 'Miyav dedi ama aslan gibi kükreyip ısırdı!',
+      spot: 'yanak',
+    ),
+    PokiBiteScenario(
+      emoji: '🍡',
+      title: 'Mochi Kırtlaması',
+      phrase: 'Yumuşacık uzayan yanaklarını pofudukça ısırdım!',
+      spot: 'yanak',
+    ),
+    PokiBiteScenario(
+      emoji: '🥷',
+      title: 'Sinsi Pusu Isırığı',
+      phrase: 'Arkasından sessizce yaklaşıp gafil avladı!',
+      spot: 'omuz',
+    ),
+    PokiBiteScenario(
+      emoji: '🍯',
+      title: 'Ballı Lokma Isırığı',
+      phrase: 'Bal damlayan yanaklarından kocaman bir ısırık!',
+      spot: 'yanak',
+    ),
+    PokiBiteScenario(
+      emoji: '🍉',
+      title: 'Karpuz Dilimi Isırığı',
+      phrase: 'Yaz günü gibi ferahlatıcı, şapır şupur bir ısırık!',
+      spot: 'yanak',
+    ),
+    PokiBiteScenario(
+      emoji: '🧸',
+      title: 'Ayıcık Burnundan Ham',
+      phrase: 'Peluş oyuncak gibi sevimlisin, dişlerime hakim olamadım!',
+      spot: 'burun',
+    ),
+  ];
+
+  static PokiBiteScenario getRandom() {
+    final r = math.Random();
+    return all[r.nextInt(all.length)];
+  }
+}
+
 /// Tatlı ısırık (Poki-Bite) mesaj verisi.
 class PokiBiteData {
   const PokiBiteData({
     required this.spot,
     required this.bittenName,
     this.senderName,
+    this.title,
+    this.phrase,
+    this.emoji,
   });
 
   final String spot;
   final String bittenName;
   final String? senderName;
+  final String? title;
+  final String? phrase;
+  final String? emoji;
 
   static const String prefix = '«poki_bite:';
   static const String suffix = '»';
@@ -126,13 +240,19 @@ class PokiBiteData {
     required String spot,
     required String bittenName,
     required String senderName,
+    String? title,
+    String? phrase,
+    String? emoji,
   }) {
     final jsonStr = jsonEncode({
       'spot': spot,
       'bitten': bittenName,
       'sender': senderName,
+      if (title != null) 'title': title,
+      if (phrase != null) 'phrase': phrase,
+      if (emoji != null) 'emoji': emoji,
     });
-    return '$prefix$jsonStr$suffix Tatlı bir ısırık verdi! 🦷 Ham!';
+    return '$prefix$jsonStr$suffix ${title ?? "Tatlı bir ısırık verdi!"} 🦷';
   }
 
   static PokiBiteData? tryParse(String content) {
@@ -147,6 +267,9 @@ class PokiBiteData {
         spot: map['spot'] as String? ?? 'yanak',
         bittenName: map['bitten'] as String? ?? 'Partner',
         senderName: map['sender'] as String?,
+        title: map['title'] as String?,
+        phrase: map['phrase'] as String?,
+        emoji: map['emoji'] as String?,
       );
     } catch (_) {
       return null;

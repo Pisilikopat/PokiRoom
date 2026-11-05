@@ -68,14 +68,17 @@ class BiteBubble extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   color: const Color(0xFFFF8DA1).withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Center(
-                  child: Text('🦷', style: TextStyle(fontSize: 18)),
+                child: Center(
+                  child: Text(
+                    bite?.emoji ?? '🦷',
+                    style: const TextStyle(fontSize: 18),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -84,7 +87,7 @@ class BiteBubble extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Tatlı Isırık! 🐾',
+                      bite?.title ?? 'Tatlı Isırık! 🐾',
                       style: GoogleFonts.fredoka(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -110,13 +113,14 @@ class BiteBubble extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            isMine
-                ? 'Ham! Çok tatlı bir ısırıktı ✨'
-                : 'Ayy acımadı ki... Şirin bir ısırık aldın! 💖',
+            bite?.phrase ??
+                (isMine
+                    ? 'Ham! Çok tatlı bir ısırıktı ✨'
+                    : 'Ayy acımadı ki... Şirin bir ısırık aldın! 💖'),
             style: TextStyle(
               fontSize: 12,
               fontStyle: FontStyle.italic,
-              color: PokiColors.textOf(context).withOpacity(0.7),
+              color: PokiColors.textOf(context).withOpacity(0.85),
             ),
           ),
           if (!isMine && onBiteBack != null) ...[
