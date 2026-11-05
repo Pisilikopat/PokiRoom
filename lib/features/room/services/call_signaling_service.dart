@@ -6,7 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// WebRTC + Supabase Realtime ile sesli arama sinyalizasyonu.
-/// P2P WebRTC, Google STUN, Supabase Broadcast kanalı.
+/// P2P WebRTC, STUN + TURN (Metered Relay) ile NAT/CGNAT aşımı, Supabase Broadcast kanalı.
 class CallSignalingService extends ChangeNotifier {
   CallSignalingService({
     required this.roomId,
@@ -45,13 +45,54 @@ class CallSignalingService extends ChangeNotifier {
   MediaStream? _localStream;
   Timer? _durationTimer;
   Timer? _ringingTimer;
+  Timer? _connectingTimeoutTimer;
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
 
-  static const _iceServers = {
+  // ICE Candidates & Offer Buffer (Yarış durumlarını önlemek için)
+  final List<RTCIceCandidate> _pendingCandidates = [];
+  bool _hasRemoteDescription = false;
+  Map<String, String>? _pendingOffer;
+
+  // STUN + TURN (Farklı ülkeler / Farklı mobil operatörler / Simetrik NAT için)
+  static const Map<String, dynamic> _iceServers = {
     'iceServers': [
       {'urls': 'stun:stun.l.google.com:19302'},
       {'urls': 'stun:stun1.l.google.com:19302'},
-    ]
+      {'urls': 'stun:stun2.l.google.com:19302'},
+      {'urls': 'stun:stun.cloudflare.com:3478'},
+      {'urls': 'stun:openrelay.metered.ca:80'},
+      {
+        'urls': 'turn:openrelay.metered.ca:80',
+        'username': 'openrelayproject',
+        'credential': 'openrelayproject',
+      },
+      {
+        'urls': 'turn:openrelay.metered.ca:443',
+        'username': 'openrelayproject',
+        'credential': 'openrelayproject',
+      },
+      {
+        'urls': 'turn:openrelay.metered.ca:443?transport=tcp',
+        'username': 'openrelayproject',
+        'credential': 'openrelayproject',
+      },
+      {
+        'urls': 'turn:relay.metered.ca:80',
+        'username': 'openrelayproject',
+        'credential': 'openrelayproject',
+      },
+      {
+        'urls': 'turn:relay.metered.ca:443',
+        'username': 'openrelayproject',
+        'credential': 'openrelayproject',
+      },
+      {
+        'urls': 'turn:relay.metered.ca:443?transport=tcp',
+        'username': 'openrelayproject',
+        'credential': 'openrelayproject',
+      },
+    ],
+    'sdpSemantics': 'unified-plan',
   };
 
   // ───────────── Stream controllers ─────────────
@@ -91,6 +132,7 @@ class CallSignalingService extends ChangeNotifier {
 
     await _broadcast('call_invite', {'from': myId});
 
+    _ringingTimer?.cancel();
     _ringingTimer = Timer(const Duration(seconds: 30), () {
       if (_state == CallState.calling) {
         _endCall(CallEndReason.noAnswer, local: true);
@@ -104,14 +146,32 @@ class CallSignalingService extends ChangeNotifier {
     if (_state != CallState.ringing) return;
     _ringingTimer?.cancel();
     _setState(CallState.connecting);
-    await _broadcast('call_accept', {'from': myId});
-    await _setupPeerConnection(isOffer: false);
+    _startConnectingTimeout();
+
+    try {
+      // 1. Önce alıcı taraf peer connection'ı kursun ve mikrofonu alsın
+      await _setupPeerConnection(isOffer: false);
+
+      // 2. Şimdi arayana hazır olduğumuzu bildir
+      await _broadcast('call_accept', {'from': myId});
+
+      // 3. Eğer kurulum sırasında offer zaten ulaştıysa hemen yanıtla
+      if (_pendingOffer != null) {
+        final offer = _pendingOffer!;
+        _pendingOffer = null;
+        await _processOffer(offer['sdp']!, offer['type']!);
+      }
+    } catch (e) {
+      debugPrint('[CallSignaling] acceptCall error: $e');
+      await _endCall(CallEndReason.connectionLost, local: true);
+    }
   }
 
   // ───────────── Aramayı reddet ─────────────
 
   Future<void> rejectCall() async {
     _ringingTimer?.cancel();
+    _connectingTimeoutTimer?.cancel();
     await _broadcast('call_reject', {'from': myId});
     _setState(CallState.idle);
   }
@@ -153,6 +213,7 @@ class CallSignalingService extends ChangeNotifier {
   void _onCallInvite(Map<String, dynamic> payload) {
     final from = _extract(payload, 'from') as String?;
     if (from == myId || _state != CallState.idle) return;
+    _ringingTimer?.cancel();
     _ringingTimer = Timer(const Duration(seconds: 30), () {
       if (_state == CallState.ringing) {
         _setState(CallState.idle);
@@ -162,12 +223,13 @@ class CallSignalingService extends ChangeNotifier {
     _onIncomingCall.add(IncomingCallEvent(callerId: from ?? partnerId));
   }
 
-  void _onCallAccept(Map<String, dynamic> payload) {
+  Future<void> _onCallAccept(Map<String, dynamic> payload) async {
     final from = _extract(payload, 'from') as String?;
     if (from == myId || _state != CallState.calling) return;
     _ringingTimer?.cancel();
     _setState(CallState.connecting);
-    _setupPeerConnection(isOffer: true);
+    _startConnectingTimeout();
+    await _setupPeerConnection(isOffer: true);
   }
 
   void _onCallReject(Map<String, dynamic> payload) {
@@ -183,15 +245,35 @@ class CallSignalingService extends ChangeNotifier {
     final type = _extract(payload, 'type') as String?;
     if (sdp == null || type == null) return;
 
-    await _pc?.setRemoteDescription(RTCSessionDescription(sdp, type));
-    final answer = await _pc?.createAnswer();
-    if (answer == null) return;
-    await _pc?.setLocalDescription(answer);
-    await _broadcast('call_answer', {
-      'from': myId,
-      'sdp': answer.sdp,
-      'type': answer.type,
-    });
+    if (_pc == null) {
+      // Peer connection henüz hazırlanıyorsa offer'ı sakla, bitince işlenecek
+      _pendingOffer = {'sdp': sdp, 'type': type};
+      return;
+    }
+
+    await _processOffer(sdp, type);
+  }
+
+  Future<void> _processOffer(String sdp, String type) async {
+    if (_pc == null) return;
+    try {
+      await _pc!.setRemoteDescription(RTCSessionDescription(sdp, type));
+      await _drainPendingCandidates();
+
+      final answer = await _pc!.createAnswer({
+        'offerToReceiveAudio': 1,
+        'offerToReceiveVideo': 0,
+      });
+      await _pc!.setLocalDescription(answer);
+
+      await _broadcast('call_answer', {
+        'from': myId,
+        'sdp': answer.sdp,
+        'type': answer.type,
+      });
+    } catch (e) {
+      debugPrint('[CallSignaling] processOffer error: $e');
+    }
   }
 
   Future<void> _onCallAnswer(Map<String, dynamic> payload) async {
@@ -199,18 +281,50 @@ class CallSignalingService extends ChangeNotifier {
     if (from == myId) return;
     final sdp = _extract(payload, 'sdp') as String?;
     final type = _extract(payload, 'type') as String?;
-    if (sdp == null || type == null) return;
-    await _pc?.setRemoteDescription(RTCSessionDescription(sdp, type));
+    if (sdp == null || type == null || _pc == null) return;
+
+    try {
+      await _pc!.setRemoteDescription(RTCSessionDescription(sdp, type));
+      await _drainPendingCandidates();
+    } catch (e) {
+      debugPrint('[CallSignaling] onCallAnswer error: $e');
+    }
   }
 
   Future<void> _onIceCandidate(Map<String, dynamic> payload) async {
     final from = _extract(payload, 'from') as String?;
     if (from == myId) return;
-    final candidate = _extract(payload, 'candidate') as String?;
+    final candidateStr = _extract(payload, 'candidate') as String?;
     final sdpMid = _extract(payload, 'sdpMid') as String?;
-    final sdpMLineIndex = _extract(payload, 'sdpMLineIndex') as int?;
-    if (candidate == null) return;
-    await _pc?.addCandidate(RTCIceCandidate(candidate, sdpMid, sdpMLineIndex));
+    final rawIndex = _extract(payload, 'sdpMLineIndex');
+    final sdpMLineIndex = (rawIndex is num) ? rawIndex.toInt() : null;
+
+    if (candidateStr == null || candidateStr.isEmpty) return;
+
+    final candidate = RTCIceCandidate(candidateStr, sdpMid, sdpMLineIndex);
+
+    if (_pc != null && _hasRemoteDescription) {
+      try {
+        await _pc!.addCandidate(candidate);
+      } catch (e) {
+        debugPrint('[CallSignaling] addCandidate error: $e');
+      }
+    } else {
+      _pendingCandidates.add(candidate);
+    }
+  }
+
+  Future<void> _drainPendingCandidates() async {
+    _hasRemoteDescription = true;
+    if (_pc == null) return;
+    for (final candidate in _pendingCandidates) {
+      try {
+        await _pc!.addCandidate(candidate);
+      } catch (e) {
+        debugPrint('[CallSignaling] drainCandidate error: $e');
+      }
+    }
+    _pendingCandidates.clear();
   }
 
   void _onCallEnd(Map<String, dynamic> payload) {
@@ -222,6 +336,10 @@ class CallSignalingService extends ChangeNotifier {
   // ───────────── WebRTC peer bağlantısı ─────────────
 
   Future<void> _setupPeerConnection({required bool isOffer}) async {
+    _hasRemoteDescription = false;
+    _pendingCandidates.clear();
+    _pendingOffer = null;
+
     _pc = await createPeerConnection(_iceServers);
 
     _localStream = await navigator.mediaDevices.getUserMedia({
@@ -234,11 +352,16 @@ class CallSignalingService extends ChangeNotifier {
     });
 
     for (final track in _localStream!.getAudioTracks()) {
+      track.enabled = !_isMuted;
       await _pc!.addTrack(track, _localStream!);
     }
 
+    if (!kIsWeb) {
+      await Helper.setSpeakerphoneOn(_isSpeakerOn);
+    }
+
     _pc!.onIceCandidate = (candidate) {
-      if (candidate.candidate != null) {
+      if (candidate.candidate != null && candidate.candidate!.isNotEmpty) {
         _broadcast('ice_candidate', {
           'from': myId,
           'candidate': candidate.candidate,
@@ -249,23 +372,39 @@ class CallSignalingService extends ChangeNotifier {
     };
 
     _pc!.onTrack = (event) {
+      debugPrint('[CallSignaling] onTrack: streams=${event.streams.length}');
       if (event.streams.isNotEmpty) {
         _remoteRenderer.srcObject = event.streams.first;
         _onRemoteStream.add(event.streams.first);
       }
-      _setState(CallState.active);
-      _startDurationTimer();
+      _markConnected();
     };
 
     _pc!.onConnectionState = (state) {
-      if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
+      debugPrint('[CallSignaling] onConnectionState: $state');
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        _markConnected();
+      } else if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
         _endCall(CallEndReason.connectionLost, local: false);
       }
     };
 
+    _pc!.onIceConnectionState = (state) {
+      debugPrint('[CallSignaling] onIceConnectionState: $state');
+      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected ||
+          state == RTCIceConnectionState.RTCIceConnectionStateCompleted) {
+        _markConnected();
+      } else if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
+        _endCall(CallEndReason.connectionLost, local: false);
+      }
+    };
+
     if (isOffer) {
-      final offer = await _pc!.createOffer({'offerToReceiveAudio': true});
+      final offer = await _pc!.createOffer({
+        'offerToReceiveAudio': 1,
+        'offerToReceiveVideo': 0,
+      });
       await _pc!.setLocalDescription(offer);
       await _broadcast('call_offer', {
         'from': myId,
@@ -273,6 +412,24 @@ class CallSignalingService extends ChangeNotifier {
         'type': offer.type,
       });
     }
+  }
+
+  void _markConnected() {
+    _connectingTimeoutTimer?.cancel();
+    if (_state != CallState.active) {
+      _setState(CallState.active);
+      _startDurationTimer();
+    }
+  }
+
+  void _startConnectingTimeout() {
+    _connectingTimeoutTimer?.cancel();
+    _connectingTimeoutTimer = Timer(const Duration(seconds: 30), () {
+      if (_state == CallState.connecting) {
+        debugPrint('[CallSignaling] Connection timed out after 30s');
+        _endCall(CallEndReason.connectionLost, local: true);
+      }
+    });
   }
 
   void _startDurationTimer() {
@@ -298,7 +455,12 @@ class CallSignalingService extends ChangeNotifier {
     }
 
     _ringingTimer?.cancel();
+    _connectingTimeoutTimer?.cancel();
     _durationTimer?.cancel();
+
+    _pendingCandidates.clear();
+    _pendingOffer = null;
+    _hasRemoteDescription = false;
 
     _localStream?.getTracks().forEach((t) => t.stop());
     _localStream?.dispose();
