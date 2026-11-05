@@ -93,11 +93,17 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                     const Color(0xFF1D1917),
                     const Color(0xFF2C2522),
                   ]
-                : [
-                    const Color(0xFFFFECE8),
-                    const Color(0xFFFFF5F0),
-                    const Color(0xFFE8F4E8),
-                  ],
+                : PokiColors.isPink(context)
+                    ? [
+                        const Color(0xFFFFD6E0),
+                        const Color(0xFFFFF0F5),
+                        const Color(0xFFFFDEE6),
+                      ]
+                    : [
+                        const Color(0xFFFFECE8),
+                        const Color(0xFFFFF5F0),
+                        const Color(0xFFE8F4E8),
+                      ],
           ),
         ),
         child: SafeArea(

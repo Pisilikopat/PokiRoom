@@ -233,19 +233,32 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const ActivityBellButton(),
-                  ValueListenableBuilder<ThemeMode>(
+                  ValueListenableBuilder<PokiThemeMode>(
                     valueListenable: PokiRoomApp.themeMode,
                     builder: (context, mode, _) {
-                      final isDark = mode == ThemeMode.dark;
+                      final IconData icon;
+                      final Color? color;
+                      final String tooltip;
+
+                      switch (mode) {
+                        case PokiThemeMode.light:
+                          icon = Icons.light_mode_rounded;
+                          color = const Color(0xFFFFA000);
+                          tooltip = 'Gündüz Modu ☀️ (Dokun: Değiştir)';
+                        case PokiThemeMode.dark:
+                          icon = Icons.dark_mode_rounded;
+                          color = PokiColors.lampOn;
+                          tooltip = 'Gece Modu 🌙 (Dokun: Değiştir)';
+                        case PokiThemeMode.pink:
+                          icon = Icons.favorite_rounded;
+                          color = const Color(0xFFFF6584);
+                          tooltip = 'Pembe Mod 🌸 (Dokun: Değiştir)';
+                      }
+
                       return IconButton(
-                        tooltip: isDark ? 'Gündüz Modu' : 'Gece Modu',
-                        icon: Icon(
-                          isDark
-                              ? Icons.light_mode_rounded
-                              : Icons.dark_mode_rounded,
-                          color: isDark ? PokiColors.lampOn : null,
-                        ),
-                        onPressed: PokiRoomApp.toggleTheme,
+                        tooltip: tooltip,
+                        icon: Icon(icon, color: color),
+                        onPressed: PokiRoomApp.cycleTheme,
                       );
                     },
                   ),

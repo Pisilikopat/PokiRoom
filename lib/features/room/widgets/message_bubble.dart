@@ -92,10 +92,9 @@ class MessageBubble extends StatelessWidget {
       final textTheme = Theme.of(context).textTheme;
       final maxWidth = MediaQuery.of(context).size.width * 0.75;
 
-      final isDark = Theme.of(context).brightness == Brightness.dark;
       final bubbleColor = isMine
-          ? (isDark ? PokiColors.darkPrimary : PokiColors.primary)
-          : (isDark ? PokiColors.darkIncomingBubble : PokiColors.incomingBubble);
+          ? PokiColors.outgoingBubbleOf(context)
+          : PokiColors.incomingBubbleOf(context);
 
       // Sesli mesaj
       if (message.type == 'voice') {

@@ -195,8 +195,14 @@ class RoomHeader extends StatelessWidget {
                             onVoiceCallTap?.call();
                           } else if (value == 'search') {
                             onSearchTap?.call();
+                          } else if (value == 'theme_light') {
+                            PokiRoomApp.setTheme(PokiThemeMode.light);
+                          } else if (value == 'theme_dark') {
+                            PokiRoomApp.setTheme(PokiThemeMode.dark);
+                          } else if (value == 'theme_pink') {
+                            PokiRoomApp.setTheme(PokiThemeMode.pink);
                           } else if (value == 'toggle_theme') {
-                            PokiRoomApp.toggleTheme();
+                            PokiRoomApp.cycleTheme();
                           } else if (value == 'close_pocket') {
                             onClosePocket();
                           }
@@ -240,22 +246,62 @@ class RoomHeader extends StatelessWidget {
                             ),
                             const PopupMenuDivider(),
                             PopupMenuItem(
-                              value: 'toggle_theme',
+                              value: 'theme_light',
                               child: Row(
                                 children: [
-                                  Icon(
-                                    isDark
-                                        ? Icons.light_mode_rounded
-                                        : Icons.dark_mode_rounded,
+                                  const Icon(
+                                    Icons.light_mode_rounded,
                                     size: 20,
-                                    color: isDark ? PokiColors.lampOn : null,
+                                    color: Color(0xFFFFA000),
                                   ),
                                   const SizedBox(width: 10),
-                                  Text(
-                                    isDark ? 'Gündüz Modu' : 'Gece Modu',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600),
+                                  const Text(
+                                    'Gündüz Modu ☀️',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
                                   ),
+                                  const Spacer(),
+                                  if (PokiRoomApp.themeMode.value == PokiThemeMode.light)
+                                    const Icon(Icons.check_rounded, size: 18, color: Color(0xFF6BCF7F)),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'theme_dark',
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.dark_mode_rounded,
+                                    size: 20,
+                                    color: PokiColors.lampOn,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'Gece Modu 🌙',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  const Spacer(),
+                                  if (PokiRoomApp.themeMode.value == PokiThemeMode.dark)
+                                    const Icon(Icons.check_rounded, size: 18, color: Color(0xFF6BCF7F)),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'theme_pink',
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.favorite_rounded,
+                                    size: 20,
+                                    color: Color(0xFFFF6584),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'Pembe Mod 🌸',
+                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  const Spacer(),
+                                  if (PokiRoomApp.themeMode.value == PokiThemeMode.pink)
+                                    const Icon(Icons.check_rounded, size: 18, color: Color(0xFF6BCF7F)),
                                 ],
                               ),
                             ),
