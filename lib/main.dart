@@ -23,26 +23,42 @@ Future<void> main() async {
 class PokiRoomApp extends StatelessWidget {
   const PokiRoomApp({super.key});
 
-  /// Uygulama genelinde anlık tema değiştirici (Açık / Koyu)
-  static final ValueNotifier<ThemeMode> themeMode =
-      ValueNotifier<ThemeMode>(ThemeMode.light);
+  /// Uygulama genelinde anlık tema değiştirici (Açık ☀️ / Koyu 🌙 / Pembe 🌸)
+  static final ValueNotifier<PokiThemeMode> themeMode =
+      ValueNotifier<PokiThemeMode>(PokiThemeMode.light);
 
-  static void toggleTheme() {
-    themeMode.value =
-        themeMode.value == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+  /// Sırayla temalar arasında geçiş yapar: Gündüz ☀️ ➔ Gece 🌙 ➔ Pembe Mod 🌸 ➔ Gündüz ☀️
+  static void cycleTheme() {
+    switch (themeMode.value) {
+      case PokiThemeMode.light:
+        themeMode.value = PokiThemeMode.dark;
+        break;
+      case PokiThemeMode.dark:
+        themeMode.value = PokiThemeMode.pink;
+        break;
+      case PokiThemeMode.pink:
+        themeMode.value = PokiThemeMode.light;
+        break;
+    }
   }
+
+  /// Doğrudan istenen temaya geçirir
+  static void setTheme(PokiThemeMode mode) {
+    themeMode.value = mode;
+  }
+
+  /// Geriye dönük uyumluluk için
+  static void toggleTheme() => cycleTheme();
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
+    return ValueListenableBuilder<PokiThemeMode>(
       valueListenable: themeMode,
       builder: (context, currentMode, _) {
         return MaterialApp(
           title: 'PokiRoom',
           debugShowCheckedModeBanner: false,
-          theme: PokiTheme.light,
-          darkTheme: PokiTheme.dark,
-          themeMode: currentMode,
+          theme: PokiTheme.getTheme(currentMode),
           navigatorKey: appNavigatorKey,
           builder: (context, child) => PokiNotificationOverlay(
             onTap: NotificationRouter.open,
