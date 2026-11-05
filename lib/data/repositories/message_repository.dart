@@ -82,6 +82,21 @@ class MessageRepository {
     return _send(roomId, 'text', finalContent);
   }
 
+  /// Tatlı ısırık mesajı
+  Future<void> sendBite(
+    String roomId, {
+    required String spot,
+    required String bittenName,
+    required String senderName,
+  }) {
+    final content = PokiBiteData.format(
+      spot: spot,
+      bittenName: bittenName,
+      senderName: senderName,
+    );
+    return _send(roomId, 'text', content);
+  }
+
   /// Buğulu mesaj: alıcı üzerini silince okunmuş sayılır.
   Future<void> sendFoggy(String roomId, String text) =>
       _send(roomId, 'foggy', text);

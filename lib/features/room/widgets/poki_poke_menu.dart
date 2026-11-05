@@ -5,6 +5,7 @@ import '../../../core/theme/poki_theme.dart';
 
 enum PokiPokeAction {
   thinkingOfYou,
+  sweetBite,
   voiceCall,
   foggyMessage,
   sticker,
@@ -36,6 +37,8 @@ class PokiPokeMenu extends StatelessWidget {
     final items = <_MenuItem>[
       const _MenuItem(PokiPokeAction.thinkingOfYou, Icons.favorite_rounded,
           'Seni Düşünüyorum', 'Kalpler uçuşsun 💖'),
+      const _MenuItem(PokiPokeAction.sweetBite, Icons.favorite_border_rounded,
+          'Tatlı Isırık', 'Ham! Şirin bir ısırık 🦷'),
       const _MenuItem(PokiPokeAction.voiceCall, Icons.call_rounded,
           'Sesli Arama', 'Canlı 1-e-1 sohbet 📞'),
       const _MenuItem(PokiPokeAction.foggyMessage, Icons.cloud_rounded,

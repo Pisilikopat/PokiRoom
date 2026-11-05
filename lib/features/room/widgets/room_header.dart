@@ -1,4 +1,5 @@
 // lib/features/room/widgets/room_header.dart
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +9,7 @@ import '../../../data/models/poki_user.dart';
 import '../../../data/services/room_presence.dart';
 import '../../../main.dart';
 import '../../notifications/widgets/activity_bell_button.dart';
+import 'cute_bandage.dart';
 
 /// Üst "Cep Odası": iki kedi + masa lambası, PokiPet sayacı, zengin durum ve hızlı aksiyonlar.
 class RoomHeader extends StatelessWidget {
@@ -23,6 +25,11 @@ class RoomHeader extends StatelessWidget {
     this.onSearchTap,
     this.isSearching = false,
     this.onVoiceCallTap,
+    this.onBitePartner,
+    this.partnerHasBandage = false,
+    this.myHasBandage = false,
+    this.onBandageTap,
+    this.onMyBandageTap,
   });
 
   final PokiUser? me;
@@ -35,6 +42,11 @@ class RoomHeader extends StatelessWidget {
   final VoidCallback? onSearchTap;
   final bool isSearching;
   final VoidCallback? onVoiceCallTap;
+  final VoidCallback? onBitePartner;
+  final bool partnerHasBandage;
+  final bool myHasBandage;
+  final VoidCallback? onBandageTap;
+  final VoidCallback? onMyBandageTap;
 
   /// Seri büyüdükçe PokiPet de büyür.
   String get _petEmoji {
@@ -284,6 +296,8 @@ class RoomHeader extends StatelessWidget {
                       name: me?.nickname ?? 'Sen',
                       awake: true,
                       user: me,
+                      hasBandage: myHasBandage,
+                      onBandageTap: onMyBandageTap,
                     ),
                   ),
                   Padding(
@@ -295,6 +309,10 @@ class RoomHeader extends StatelessWidget {
                       name: partner?.nickname ?? '...',
                       awake: partnerOnline,
                       user: partner,
+                      isPartner: true,
+                      hasBandage: partnerHasBandage,
+                      onBandageTap: onBandageTap,
+                      onBite: onBitePartner,
                     ),
                   ),
                 ],
@@ -485,54 +503,73 @@ class _CatColumn extends StatelessWidget {
     required this.name,
     required this.awake,
     this.user,
+    this.isPartner = false,
+    this.hasBandage = false,
+    this.onBandageTap,
+    this.onBite,
   });
 
   final String name;
   final bool awake;
   final PokiUser? user;
+  final bool isPartner;
+  final bool hasBandage;
+  final VoidCallback? onBandageTap;
+  final VoidCallback? onBite;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final avatar = user?.avatarUrl;
 
+    Widget avatarWidget = Container(
+      width: 58,
+      height: 58,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: PokiColors.primary.withOpacity(0.25),
+        border: Border.all(
+          color: awake ? PokiColors.primaryButton : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: ClipOval(
+        child: avatar != null
+            ? Image.network(
+                avatar,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Center(
+                  child: Text(
+                    awake ? '🐱' : '😴',
+                    style: const TextStyle(fontSize: 28),
+                  ),
+                ),
+              )
+            : Center(
+                child: Text(
+                  awake ? '🐱' : '😴',
+                  style: const TextStyle(fontSize: 28),
+                ),
+              ),
+      ),
+    );
+
+    // Partnerin kedisi ise basılı tutarak ısırma etkileşimi
+    if (isPartner && onBite != null) {
+      avatarWidget = _HoldableCatAvatar(
+        onBite: onBite!,
+        child: avatarWidget,
+      );
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Stack(
           alignment: Alignment.center,
+          clipBehavior: Clip.none,
           children: [
-            Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: PokiColors.primary.withOpacity(0.25),
-                border: Border.all(
-                  color: awake ? PokiColors.primaryButton : Colors.transparent,
-                  width: 2,
-                ),
-              ),
-              child: ClipOval(
-                child: avatar != null
-                    ? Image.network(
-                        avatar,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Center(
-                          child: Text(
-                            awake ? '🐱' : '😴',
-                            style: const TextStyle(fontSize: 28),
-                          ),
-                        ),
-                      )
-                    : Center(
-                        child: Text(
-                          awake ? '🐱' : '😴',
-                          style: const TextStyle(fontSize: 28),
-                        ),
-                      ),
-              ),
-            ),
+            avatarWidget,
             if (!awake)
               Positioned(
                 right: 0,
@@ -544,6 +581,18 @@ class _CatColumn extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: const Text('💤', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+            // Şirin, narin yara bandı rozeti (çok büyük değil, 22x12)
+            if (hasBandage)
+              Positioned(
+                top: 2,
+                right: 2,
+                child: CuteBandageBadge(
+                  onTap: onBandageTap ?? () {},
+                  tooltip: isPartner
+                      ? 'Partnerinin tatlı ısırık izi 🩹 Dokun ve iyileştir ✨'
+                      : 'Tatlı ısırık izin 🩹 Dokun ve iyileştir ✨',
                 ),
               ),
           ],
@@ -559,3 +608,187 @@ class _CatColumn extends StatelessWidget {
     );
   }
 }
+
+/// Partnerin kedisine basılı tutunca tatlı sıkışma ve ısırma tetikleyicisi
+class _HoldableCatAvatar extends StatefulWidget {
+  const _HoldableCatAvatar({
+    required this.child,
+    required this.onBite,
+  });
+
+  final Widget child;
+  final VoidCallback onBite;
+
+  @override
+  State<_HoldableCatAvatar> createState() => _HoldableCatAvatarState();
+}
+
+class _HoldableCatAvatarState extends State<_HoldableCatAvatar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pressController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 650),
+  );
+
+  bool _isPressing = false;
+  bool _biteTriggered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressController.addListener(() {
+      // 320ms ara haptik feedback (basılı tutarken hissedilen hafif nabız)
+      if (_isPressing &&
+          !_biteTriggered &&
+          _pressController.value >= 0.50 &&
+          _pressController.value < 0.55) {
+        HapticFeedback.lightImpact();
+      }
+    });
+
+    _pressController.addStatusListener((status) {
+      if (status == AnimationStatus.completed && !_biteTriggered) {
+        _biteTriggered = true;
+        HapticFeedback.heavyImpact();
+        widget.onBite();
+        // Hızlıca eski haline yaylan
+        _pressController.reverse();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pressController.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    _isPressing = true;
+    _biteTriggered = false;
+    HapticFeedback.selectionClick();
+    _pressController.forward();
+  }
+
+  void _cancelPress() {
+    if (!_isPressing) return;
+    _isPressing = false;
+    if (!_biteTriggered) {
+      _pressController.reverse();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: (_) => _cancelPress(),
+      onTapCancel: _cancelPress,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedBuilder(
+        animation: _pressController,
+        builder: (context, child) {
+          final progress = _pressController.value;
+          // Basılı tutarken mochi gibi tatlıca içeri büzülür (1.0 -> 0.88), ısırdıktan sonra geri yaylanır
+          final scale = _biteTriggered
+              ? 1.0 + (1.0 - progress) * 0.14
+              : 1.0 - (progress * 0.12);
+
+          return Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              // Basılı tutarken etrafta dönüp dolan pembe enerji halkası
+              if (_isPressing && progress > 0.05)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _ChargeRingPainter(progress: progress),
+                  ),
+                ),
+
+              // Kedi Avatarı
+              Transform.scale(
+                scale: scale,
+                child: widget.child,
+              ),
+
+              // Basılı tutarken yukarıda beliren mini ipucu hapı
+              if (_isPressing && progress > 0.28 && !_biteTriggered)
+                Positioned(
+                  top: -24,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFF8DA1), Color(0xFFFF6F91)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33FF6F91),
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('🦷', style: TextStyle(fontSize: 10)),
+                        const SizedBox(width: 3),
+                        Text(
+                          progress > 0.80 ? 'HAM! 🐾' : 'Isırılıyor...',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ChargeRingPainter extends CustomPainter {
+  _ChargeRingPainter({required this.progress});
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width / 2) + 4.0;
+
+    final bgPaint = Paint()
+      ..color = const Color(0xFFFF8DA1).withOpacity(0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+
+    final activePaint = Paint()
+      ..color = const Color(0xFFFF6F91)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3.5;
+
+    canvas.drawCircle(center, radius, bgPaint);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      math.pi * 2 * progress,
+      false,
+      activePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChargeRingPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+

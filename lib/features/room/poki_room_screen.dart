@@ -32,6 +32,7 @@ import '../quiz/quiz_lobby_screen.dart';
 import '../workshop/doodle_studio_screen.dart';
 import '../workshop/live_doodle_screen.dart';
 import '../workshop/widgets/sticker_picker_sheet.dart';
+import 'widgets/bite_overlay.dart';
 import 'widgets/chat_search_bar.dart';
 import 'widgets/foggy_compose_sheet.dart';
 import 'widgets/hearts_burst.dart';
@@ -98,6 +99,9 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   // Poki-Poke / bildirim durumu
   int? _burstId;
   int _burstCounter = 0;
+  BiteEvent? _incomingBite;
+  int? _biteBurstId;
+  int _biteCounter = 0;
   String? _toast;
   VoidCallback? _toastOnTap;
   Timer? _toastTimer;
@@ -186,6 +190,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       });
 
       _listen(presence.pokes, _onPoke);
+      _listen(presence.bites, _onBite);
       _listen(presence.doodleInvites, _onDoodleInvite);
       GameLobbyService.instance.init(widget.roomId);
       _listen(GameLobbyService.instance.onQuizInvite, _onQuizInvite);
@@ -438,6 +443,15 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     _showToast('Pıt! 🐾 ${event.nickname} şu an seni düşünüyor');
   }
 
+  void _onBite(BiteEvent event) {
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _incomingBite = event;
+      _biteBurstId = ++_biteCounter;
+    });
+    _showToast('🐱 ${event.nickname} seni tatlıca ısırdı! Ham! 🦷');
+  }
+
   void _onDoodleInvite(PokeEvent event) {
     HapticFeedback.mediumImpact();
     _showToast(
@@ -547,6 +561,8 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     switch (action) {
       case PokiPokeAction.thinkingOfYou:
         await _sendPoke();
+      case PokiPokeAction.sweetBite:
+        await _sendBite();
       case PokiPokeAction.voiceCall:
         await _startVoiceCall();
       case PokiPokeAction.foggyMessage:
@@ -612,6 +628,34 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       );
     } catch (_) {
       _snack('Poki-Poke gönderilemedi, tekrar dener misin?');
+    }
+  }
+
+  Future<void> _sendBite({String spot = 'yanak'}) async {
+    final now = DateTime.now();
+    final last = _lastPokeSent;
+    if (last != null && now.difference(last) < const Duration(milliseconds: 1200)) {
+      _snack('Biraz yavaş, kedi nefes alsın 🐾');
+      return;
+    }
+    _lastPokeSent = now;
+    final myNick = _me?.nickname ?? 'Biri';
+    final partnerNick = _partner?.nickname ?? 'Karşı taraf';
+    try {
+      await _presence?.sendBite(myNick, spot: spot);
+      await _messages.sendBite(
+        widget.roomId,
+        spot: spot,
+        bittenName: partnerNick,
+        senderName: myNick,
+      );
+      NotificationRepository.instance.notifyPartner(
+        roomId: widget.roomId,
+        type: NotificationType.poke,
+      );
+      _snack('$partnerNick tatlıca ısırıldı! 🦷🐾');
+    } catch (_) {
+      _snack('Isırık gönderilemedi, tekrar dener misin?');
     }
   }
 
@@ -945,6 +989,11 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                 onSearchTap: _toggleSearch,
                 isSearching: _isSearchActive,
                 onVoiceCallTap: _startVoiceCall,
+                onBitePartner: () => _sendBite(),
+                partnerHasBandage: presence?.partnerHasBandage ?? false,
+                myHasBandage: presence?.myHasBandage ?? false,
+                onBandageTap: () => presence?.healPartnerBandage(),
+                onMyBandageTap: () => presence?.healMyBandage(),
               ),
               if (_isSearchActive)
                 ChatSearchBar(
@@ -984,6 +1033,15 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
               child: HeartsBurst(
                 key: ValueKey(_burstId),
                 onDone: () => _setState(() => _burstId = null),
+              ),
+            ),
+          if (_incomingBite != null && _biteBurstId != null)
+            Positioned.fill(
+              child: BiteOverlay(
+                key: ValueKey('bite_$_biteBurstId'),
+                senderName: _incomingBite!.nickname,
+                spot: _incomingBite!.spot,
+                onDone: () => _setState(() => _incomingBite = null),
               ),
             ),
           Positioned(
@@ -1096,6 +1154,8 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
           onFoggyRevealed: () => _onFoggyRevealed(m.id),
           onLongPress: () => _onMessageLongPress(m, mine),
           onSwipeReply: _startReply,
+          onBiteBack: () => _sendBite(),
+          partnerNickname: _partner?.nickname ?? 'Partnerin',
         );
       },
     );

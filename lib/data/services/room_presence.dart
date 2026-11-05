@@ -133,6 +133,16 @@ class PokeEvent {
   final String nickname;
 }
 
+/// Karşı taraftan gelen tatlı ısırık sinyali.
+class BiteEvent {
+  const BiteEvent({
+    required this.nickname,
+    this.spot = 'yanak',
+  });
+  final String nickname;
+  final String spot;
+}
+
 /// Supabase Realtime ile:
 ///  - Presence: online / aktivite durumu / yazıyor
 ///  - Broadcast: Poki-Poke ve "birlikte çiz" daveti
@@ -188,6 +198,8 @@ class RoomPresence extends ChangeNotifier with WidgetsBindingObserver {
 
   static const String _pokeEvent = 'poki_poke';
   static const String _inviteEvent = 'doodle_invite';
+  static const String _biteEvent = 'poki_bite';
+  static const String _bandageEvent = 'poki_bandage';
 
   final String roomId;
   final String myId;
@@ -197,6 +209,7 @@ class RoomPresence extends ChangeNotifier with WidgetsBindingObserver {
   RealtimeChannel? _channel;
   final StreamController<PokeEvent> _pokes = StreamController.broadcast();
   final StreamController<PokeEvent> _invites = StreamController.broadcast();
+  final StreamController<BiteEvent> _bites = StreamController.broadcast();
   bool _typing = false;
   bool _disposed = false;
   bool _joined = false;
@@ -207,8 +220,12 @@ class RoomPresence extends ChangeNotifier with WidgetsBindingObserver {
   bool partnerTyping = false;
   PokiActivity partnerActivity = PokiActivity.offline;
 
+  bool partnerHasBandage = false;
+  bool myHasBandage = false;
+
   Stream<PokeEvent> get pokes => _pokes.stream;
   Stream<PokeEvent> get doodleInvites => _invites.stream;
+  Stream<BiteEvent> get bites => _bites.stream;
 
   void join() {
     if (_joined && _channel != null) return;
@@ -222,6 +239,8 @@ class RoomPresence extends ChangeNotifier with WidgetsBindingObserver {
         .onPresenceSync((_) => _sync())
         .onBroadcast(event: _pokeEvent, callback: (p) => _emit(_pokes, p))
         .onBroadcast(event: _inviteEvent, callback: (p) => _emit(_invites, p))
+        .onBroadcast(event: _biteEvent, callback: (p) => _emitBite(p))
+        .onBroadcast(event: _bandageEvent, callback: (p) => _emitBandage(p))
         .subscribe((status, error) async {
       if (status == RealtimeSubscribeStatus.subscribed) {
         await _track();
@@ -241,6 +260,32 @@ class RoomPresence extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  void _emitBite(Map<String, dynamic> payload) {
+    final nested = payload['payload'];
+    final data = nested is Map ? nested.cast<String, dynamic>() : payload;
+    if (data['from'] == myId) return;
+    final name = (data['nickname'] as String?)?.trim();
+    final spot = (data['spot'] as String?)?.trim() ?? 'yanak';
+    myHasBandage = true;
+    if (!_disposed && !_bites.isClosed) {
+      _bites.add(BiteEvent(
+        nickname: (name == null || name.isEmpty) ? 'Partnerin' : name,
+        spot: spot,
+      ));
+      notifyListeners();
+    }
+  }
+
+  void _emitBandage(Map<String, dynamic> payload) {
+    final nested = payload['payload'];
+    final data = nested is Map ? nested.cast<String, dynamic>() : payload;
+    if (data['from'] == myId) return;
+    partnerHasBandage = false;
+    if (!_disposed) {
+      notifyListeners();
+    }
+  }
+
   Future<void> _broadcast(String event, String myNickname) async {
     await _channel?.sendBroadcastMessage(
       event: event,
@@ -252,6 +297,36 @@ class RoomPresence extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> sendDoodleInvite(String myNickname) =>
       _broadcast(_inviteEvent, myNickname);
+
+  Future<void> sendBite(String myNickname, {String spot = 'yanak'}) async {
+    partnerHasBandage = true;
+    notifyListeners();
+    await _channel?.sendBroadcastMessage(
+      event: _biteEvent,
+      payload: {
+        'from': myId,
+        'nickname': myNickname,
+        'spot': spot,
+      },
+    );
+  }
+
+  Future<void> healMyBandage() async {
+    myHasBandage = false;
+    notifyListeners();
+    await _channel?.sendBroadcastMessage(
+      event: _bandageEvent,
+      payload: {
+        'from': myId,
+        'healed': true,
+      },
+    );
+  }
+
+  Future<void> healPartnerBandage() async {
+    partnerHasBandage = false;
+    notifyListeners();
+  }
 
   void _sync() {
     var online = false;
@@ -337,6 +412,7 @@ class RoomPresence extends ChangeNotifier with WidgetsBindingObserver {
     if (current == this) current = null;
     _pokes.close();
     _invites.close();
+    _bites.close();
     final channel = _channel;
     if (channel != null) {
       channel.untrack();

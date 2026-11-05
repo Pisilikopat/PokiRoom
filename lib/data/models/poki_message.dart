@@ -53,6 +53,9 @@ class PokiMessage {
 
   bool get isText => type == 'text';
   bool get isVoice => type == 'voice';
+  bool get isBite => PokiBiteData.tryParse(cleanContent) != null;
+
+  PokiBiteData? get biteData => PokiBiteData.tryParse(cleanContent);
 
   PokiVoiceData? get voiceData {
     if (!isVoice) return null;
@@ -103,3 +106,51 @@ class PokiMessage {
             : DateTime.parse(m['unlock_at'] as String).toLocal(),
       );
 }
+
+/// Tatlı ısırık (Poki-Bite) mesaj verisi.
+class PokiBiteData {
+  const PokiBiteData({
+    required this.spot,
+    required this.bittenName,
+    this.senderName,
+  });
+
+  final String spot;
+  final String bittenName;
+  final String? senderName;
+
+  static const String prefix = '«poki_bite:';
+  static const String suffix = '»';
+
+  static String format({
+    required String spot,
+    required String bittenName,
+    required String senderName,
+  }) {
+    final jsonStr = jsonEncode({
+      'spot': spot,
+      'bitten': bittenName,
+      'sender': senderName,
+    });
+    return '$prefix$jsonStr$suffix Tatlı bir ısırık verdi! 🦷 Ham!';
+  }
+
+  static PokiBiteData? tryParse(String content) {
+    final start = content.indexOf(prefix);
+    if (start == -1) return null;
+    final end = content.indexOf(suffix, start);
+    if (end == -1) return null;
+    try {
+      final jsonStr = content.substring(start + prefix.length, end);
+      final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+      return PokiBiteData(
+        spot: map['spot'] as String? ?? 'yanak',
+        bittenName: map['bitten'] as String? ?? 'Partner',
+        senderName: map['sender'] as String?,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+}
+

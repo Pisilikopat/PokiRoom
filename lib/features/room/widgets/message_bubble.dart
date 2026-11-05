@@ -6,6 +6,7 @@ import '../../../core/theme/poki_theme.dart';
 import '../../../core/utils/time_format.dart';
 import '../../../data/models/poki_message.dart';
 import '../../workshop/widgets/sticker_image.dart';
+import 'bite_bubble.dart';
 import 'foggy_bubble.dart';
 import 'voice_message_bubble.dart';
 
@@ -18,6 +19,8 @@ class MessageBubble extends StatelessWidget {
     this.onLongPress,
     this.onSwipeReply,
     this.isHighlighted = false,
+    this.onBiteBack,
+    this.partnerNickname = 'Partnerin',
   });
 
   final PokiMessage message;
@@ -32,6 +35,10 @@ class MessageBubble extends StatelessWidget {
 
   /// Arama sonucunda vurgulanıp vurgulanmadığı
   final bool isHighlighted;
+
+  /// Karşılık ısırığı verme aksiyonu
+  final VoidCallback? onBiteBack;
+  final String partnerNickname;
 
   Widget _meta(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -57,8 +64,22 @@ class MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget content;
 
-    // Alıcı tarafında buğulu mesaj: silerek açılır.
-    if (message.type == 'foggy' && !isMine) {
+    // Tatlı ısırık mesajı
+    if (message.isBite) {
+      content = Align(
+        alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: BiteBubble(
+            message: message,
+            isMine: isMine,
+            meta: _meta(context),
+            onBiteBack: onBiteBack,
+            partnerNickname: partnerNickname,
+          ),
+        ),
+      );
+    } else if (message.type == 'foggy' && !isMine) {
       content = GestureDetector(
         onLongPress: onLongPress,
         child: FoggyBubble(
