@@ -130,7 +130,7 @@ class _MessageInputState extends State<MessageInput> {
                 ),
                 border: Border(
                   left: const BorderSide(
-                    color: PokiColors.primaryButton,
+                    color: PokiColors.primaryButtonOf(context),
                     width: 4,
                   ),
                   top: BorderSide(color: Colors.black.withOpacity(0.05)),
@@ -148,7 +148,7 @@ class _MessageInputState extends State<MessageInput> {
                 children: [
                   const Icon(
                     Icons.reply_rounded,
-                    color: PokiColors.primaryButton,
+                    color: PokiColors.primaryButtonOf(context),
                     size: 20,
                   ),
                   const SizedBox(width: 8),
@@ -161,7 +161,7 @@ class _MessageInputState extends State<MessageInput> {
                           '${reply.senderNickname} yanıtlanıyor',
                           style: textTheme.labelSmall?.copyWith(
                             fontWeight: FontWeight.w800,
-                            color: PokiColors.primaryButton,
+                            color: PokiColors.primaryButtonOf(context),
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -202,7 +202,7 @@ class _MessageInputState extends State<MessageInput> {
                       IconButton(
                         tooltip: 'Poki-Poke',
                         iconSize: 28,
-                        color: PokiColors.primaryButton,
+                        color: PokiColors.primaryButtonOf(context),
                         icon: const Icon(Icons.pets_rounded),
                         onPressed: widget.onOpenMenu,
                       ),
@@ -240,7 +240,7 @@ class _MessageInputState extends State<MessageInput> {
                     // Sağ Buton: Metin varsa Gönder / Yoksa Mikrofon
                     if (canSend)
                       Material(
-                        color: PokiColors.primaryButton,
+                        color: PokiColors.primaryButtonOf(context),
                         shape: const CircleBorder(),
                         child: InkWell(
                           customBorder: const CircleBorder(),
@@ -306,7 +306,7 @@ class _MessageInputState extends State<MessageInput> {
                           );
                         },
                         child: Material(
-                          color: PokiColors.primaryButton,
+                          color: PokiColors.primaryButtonOf(context),
                           shape: const CircleBorder(),
                           elevation: 1,
                           child: Container(
@@ -382,7 +382,7 @@ class _RecordingBarState extends State<_RecordingBar>
         border: Border.all(
           color: widget.isCanceling
               ? Colors.red.shade300
-              : PokiColors.primaryButton.withOpacity(0.35),
+              : PokiColors.primaryButtonOf(context).withOpacity(0.35),
           width: 1.5,
         ),
         boxShadow: PokiShadows.softOf(context),

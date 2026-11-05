@@ -42,18 +42,25 @@ class MessageBubble extends StatelessWidget {
 
   Widget _meta(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isPink = PokiColors.isPink(context);
+    final metaColor = isMine && isPink
+        ? Colors.white.withOpacity(0.85)
+        : PokiColors.textOf(context).withOpacity(0.6);
+    final iconColor = isMine && isPink
+        ? Colors.white.withOpacity(message.isRead ? 1.0 : 0.6)
+        : PokiColors.textOf(context).withOpacity(message.isRead ? 0.9 : 0.35);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(formatClock(message.createdAt),
-            style: textTheme.labelSmall
-                ?.copyWith(color: PokiColors.text.withOpacity(0.6))),
+            style: textTheme.labelSmall?.copyWith(color: metaColor)),
         if (isMine) ...[
           const SizedBox(width: 4),
           Icon(
             Icons.done_all_rounded,
             size: 14,
-            color: PokiColors.text.withOpacity(message.isRead ? 0.9 : 0.35),
+            color: iconColor,
           ),
         ],
       ],
@@ -223,7 +230,14 @@ class MessageBubble extends StatelessWidget {
                   ],
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(body, style: textTheme.bodyLarge),
+                    child: Text(
+                      body,
+                      style: textTheme.bodyLarge?.copyWith(
+                        color: isMine && PokiColors.isPink(context)
+                            ? Colors.white
+                            : PokiColors.textOf(context),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   _meta(context),

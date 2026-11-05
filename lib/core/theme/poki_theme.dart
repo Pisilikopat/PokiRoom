@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 enum PokiThemeMode {
   light, // Gündüz (Aydınlık & Krem)
   dark,  // Gece (Karanlık & Sıcak Işık)
-  pink,  // Pembe Mod (Çilekli Süt & Kalpler 🌸)
+  pink,  // Pembe Mod (Canlı Pastel Pembe / Çilekli Süt & Kalpler 🌸)
 }
 
 /// PokiRoom renk paleti. Saf siyah (#000000) kullanılmaz.
@@ -30,13 +30,13 @@ class PokiColors {
   static const Color darkPrimary = Color(0xFFE5988A); // Gece pembe
   static const Color darkPrimaryButton = Color(0xFFFF9E80); // Buton vurgusu
 
-  // Pembe Mod (Çilekli Süt / Pastel Pink Blossom 🌸)
-  static const Color pinkBackground = Color(0xFFFFF0F5); // Lavender blush / Çilekli süt
-  static const Color pinkSurface = Color(0xFFFFDEE6); // Yumuşak açık pudra / marshmallow pembe
-  static const Color pinkText = Color(0xFF5A3543); // Sıcak tatlı vişne kakao (yüksek kontrast, asla siyah yok)
-  static const Color pinkIncomingBubble = Color(0xFFFFD6E0); // Karşı taraf: Açık pudra pembe
-  static const Color pinkPrimary = Color(0xFFFF8FA3); // Benim balonum: Canlı tatlı kedi pembesi
-  static const Color pinkPrimaryButton = Color(0xFFFF758F); // Buton vurgusu: Şeker pembe
+  // Pembe Mod (Canlı Şeker & Çilekli Süt 🌸💖)
+  static const Color pinkBackground = Color(0xFFFFC6D9); // Belirgin, göz alıcı tatlı çilekli süt pembesi
+  static const Color pinkSurface = Color(0xFFFFB1C5); // Canlı pudra-pembe oda çerçevesi ve kartlar
+  static const Color pinkText = Color(0xFF4A1020); // Derin vişne-kakao (kusursuz okunabilirlik)
+  static const Color pinkIncomingBubble = Color(0xFFFFF0F5); // Karşı taraf: Marshmallow çilekli krema
+  static const Color pinkPrimary = Color(0xFFFF3377); // Benim balonum: Canlı şeker kedi pembesi
+  static const Color pinkPrimaryButton = Color(0xFFFF1A5E); // Butonlar ve ikonlar: Parlak çarpıcı pembe
   static const Color pinkLampOn = Color(0xFFFFBE0B); // Sıcak altın sarısı
 
   // Context-aware renk yardımcıları
@@ -59,6 +59,9 @@ class PokiColors {
   static Color outgoingBubbleOf(BuildContext context) =>
       Theme.of(context).extension<PokiThemeColors>()?.outgoingBubble ??
       (Theme.of(context).brightness == Brightness.dark ? darkPrimary : primary);
+
+  static Color primaryButtonOf(BuildContext context) =>
+      Theme.of(context).extension<PokiThemeColors>()?.primaryButton ?? primaryButton;
 
   static Color lampOnOf(BuildContext context) =>
       Theme.of(context).extension<PokiThemeColors>()?.lampOn ?? lampOn;
@@ -391,6 +394,7 @@ class PokiTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       scaffoldBackgroundColor: PokiColors.pinkBackground,
+      cardColor: PokiColors.pinkSurface,
     );
 
     final textTheme = GoogleFonts.quicksandTextTheme(base.textTheme).apply(
@@ -409,14 +413,14 @@ class PokiTheme {
         onPrimary: Colors.white,
         secondary: PokiColors.pinkPrimary,
         onSecondary: Colors.white,
-        surface: PokiColors.pinkBackground,
+        surface: PokiColors.pinkSurface,
         onSurface: PokiColors.pinkText,
         surfaceContainerHighest: PokiColors.pinkSurface,
       ),
       textTheme: textTheme,
       iconTheme: const IconThemeData(color: PokiColors.pinkText),
       appBarTheme: AppBarTheme(
-        backgroundColor: PokiColors.pinkBackground,
+        backgroundColor: PokiColors.pinkSurface,
         foregroundColor: PokiColors.pinkText,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -450,7 +454,7 @@ class PokiTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: PokiColors.pinkSurface,
+        fillColor: const Color(0xFFFFF0F5),
         hintStyle: TextStyle(color: PokiColors.pinkText.withOpacity(0.55)),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -464,8 +468,8 @@ class PokiTheme {
         ),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: PokiColors.pinkSurface,
-        contentTextStyle: GoogleFonts.quicksand(color: PokiColors.pinkText),
+        backgroundColor: PokiColors.pinkPrimaryButton,
+        contentTextStyle: GoogleFonts.quicksand(color: Colors.white),
         behavior: SnackBarBehavior.floating,
         shape: shape,
       ),
