@@ -129,7 +129,7 @@ class _MessageInputState extends State<MessageInput> {
                   top: Radius.circular(16),
                 ),
                 border: Border(
-                  left: const BorderSide(
+                  left: BorderSide(
                     color: PokiColors.primaryButtonOf(context),
                     width: 4,
                   ),
@@ -146,7 +146,7 @@ class _MessageInputState extends State<MessageInput> {
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.reply_rounded,
                     color: PokiColors.primaryButtonOf(context),
                     size: 20,
