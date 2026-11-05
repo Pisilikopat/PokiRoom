@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/poki_theme.dart';
 import '../../../data/models/poki_user.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../services/call_signaling_service.dart';
 
 /// Aktif sesli arama ekranı.
@@ -100,9 +101,23 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
           ),
         ),
         child: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              const SizedBox(height: 20),
+              Positioned(
+                left: 0,
+                top: 0,
+                child: SizedBox(
+                  width: 1,
+                  height: 1,
+                  child: Opacity(
+                    opacity: 0.01,
+                    child: RTCVideoView(widget.signaling.remoteRenderer),
+                  ),
+                ),
+              ),
+              Column(
+                children: [
+                  const SizedBox(height: 20),
               // Üst bar — minimize butonu
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -252,9 +267,11 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
               const SizedBox(height: 48),
             ],
           ),
-        ),
+        ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildRing(double radius, double opacity, bool isDark) {

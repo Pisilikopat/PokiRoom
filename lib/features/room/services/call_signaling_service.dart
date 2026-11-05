@@ -47,6 +47,7 @@ class CallSignalingService extends ChangeNotifier {
   Timer? _ringingTimer;
   Timer? _connectingTimeoutTimer;
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
+  RTCVideoRenderer get remoteRenderer => _remoteRenderer;
 
   // ICE Candidates & Offer Buffer (Yarış durumlarını önlemek için)
   final List<RTCIceCandidate> _pendingCandidates = [];
