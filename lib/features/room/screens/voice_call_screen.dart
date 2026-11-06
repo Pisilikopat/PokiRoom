@@ -110,14 +110,17 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
           child: Stack(
             children: [
               Positioned(
-                left: -9999,
-                top: -9999,
-                child: SizedBox(
-                  width: 100,
-                  height: 100,
-                  child: RTCVideoView(
-                    widget.signaling.remoteRenderer,
-                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                bottom: 0,
+                right: 0,
+                child: Opacity(
+                  opacity: 0.01,
+                  child: SizedBox(
+                    width: 4,
+                    height: 4,
+                    child: RTCVideoView(
+                      widget.signaling.remoteRenderer,
+                      objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                    ),
                   ),
                 ),
               ),

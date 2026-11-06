@@ -78,25 +78,12 @@ class _MessageInputState extends State<MessageInput> {
 
   Future<void> _startVoiceRecord() async {
     HapticFeedback.mediumImpact();
-    final hasPerm = await _recorder.hasPermission();
-    if (!hasPerm) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mikrofon izni gerekli 🎙️🐾'),
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      return;
-    }
-
     final ok = await _recorder.startRecording();
     if (!ok && mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Ses kaydı başlatılamadı 🎙️🐾'),
+          content: Text('Mikrofon izni gerekli veya ses kaydedilemedi 🎙️🐾'),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),

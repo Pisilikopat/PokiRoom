@@ -74,9 +74,6 @@ class VoiceRecorderService {
   }
 
   Future<bool> startRecording() async {
-    final permitted = await hasPermission();
-    if (!permitted) return false;
-
     await _cleanup();
 
     _bytesBuilder.clear();
@@ -94,6 +91,8 @@ class VoiceRecorderService {
         // Web uses MediaRecorder writing to in-memory blob URL
         await _recorder.start(config, path: '');
       } else {
+        final permitted = await hasPermission();
+        if (!permitted) return false;
         // Native mobile streams bytes directly
         final stream = await _recorder.startStream(config);
         _streamSub = stream.listen((chunk) {

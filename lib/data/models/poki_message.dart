@@ -17,7 +17,7 @@ class PokiReplyInfo {
   final String snippet;
 
   String get cleanSnippet {
-    if (snippet.startsWith('«poki_bite:')) {
+    if (snippet.contains('poki_bite')) {
       return '🦷 Tatlış bir ısırık';
     }
     return snippet;
@@ -61,7 +61,7 @@ class PokiMessage {
 
   bool get isText => type == 'text';
   bool get isVoice => type == 'voice';
-  bool get isBite => PokiBiteData.tryParse(cleanContent) != null;
+  bool get isBite => PokiBiteData.tryParse(cleanContent) != null || cleanContent.contains('poki_bite');
 
   PokiBiteData? get biteData => PokiBiteData.tryParse(cleanContent);
 
@@ -76,7 +76,7 @@ class PokiMessage {
     if (type == 'time_capsule') return '⏳ Zaman kapsülü';
 
     var text = cleanContent;
-    if (text.startsWith('«poki_bite:')) {
+    if (text.contains('poki_bite')) {
       return '🦷 Tatlış bir ısırık';
     }
     if (text.length > 50) text = '${text.substring(0, 47)}...';
@@ -281,12 +281,19 @@ class PokiBiteData {
   }
 
   static PokiBiteData? tryParse(String content) {
-    final start = content.indexOf(prefix);
+    int start = content.indexOf('«poki_bite:');
+    int prefixLen = '«poki_bite:'.length;
+    String endMarker = '»';
+    if (start == -1) {
+      start = content.indexOf('<<poki_bite:');
+      prefixLen = '<<poki_bite:'.length;
+      endMarker = '>>';
+    }
     if (start == -1) return null;
-    final end = content.indexOf(suffix, start);
+    final end = content.indexOf(endMarker, start);
     if (end == -1) return null;
     try {
-      final jsonStr = content.substring(start + prefix.length, end);
+      final jsonStr = content.substring(start + prefixLen, end);
       final map = jsonDecode(jsonStr) as Map<String, dynamic>;
       return PokiBiteData(
         spot: map['spot'] as String? ?? 'yanak',
