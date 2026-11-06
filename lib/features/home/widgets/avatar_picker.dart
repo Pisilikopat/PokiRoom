@@ -36,9 +36,15 @@ class AvatarPicker extends StatelessWidget {
           CircleAvatar(
             radius: 36,
             backgroundColor: PokiColors.surface,
-            backgroundImage:
-                imageUrl != null ? NetworkImage(imageUrl!) : null,
-            child: imageUrl == null
+            backgroundImage: (imageUrl != null && imageUrl!.trim().isNotEmpty)
+                ? NetworkImage(imageUrl!)
+                : null,
+            onBackgroundImageError: (imageUrl != null && imageUrl!.trim().isNotEmpty)
+                ? (exception, stackTrace) {
+                    // Avatar URL'i 400 dönerse veya bucket henüz yoksa güvenle yut ve pati ikonuna dön
+                  }
+                : null,
+            child: (imageUrl == null || imageUrl!.trim().isEmpty)
                 ? const Icon(Icons.pets_rounded,
                     size: 32, color: PokiColors.primary)
                 : null,

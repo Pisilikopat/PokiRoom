@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 // lib/features/auth/auth_gate.dart
 import 'dart:async';
 
@@ -34,7 +35,9 @@ class _AuthGateState extends State<AuthGate> {
     // Oturum zaten varsa bildirimleri hemen başlat
     if (_loggedIn) {
       NotificationCenter.instance.start();
-      NotificationService.instance.syncTokenWithSupabase();
+      if (!kIsWeb) {
+        NotificationService.instance.syncTokenWithSupabase();
+      }
     }
 
     _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
@@ -42,7 +45,9 @@ class _AuthGateState extends State<AuthGate> {
       if (hasSession && !_loggedIn) {
         // Yeni giriş → bildirimleri başlat
         NotificationCenter.instance.start();
-        NotificationService.instance.syncTokenWithSupabase();
+        if (!kIsWeb) {
+          NotificationService.instance.syncTokenWithSupabase();
+        }
       } else if (!hasSession && _loggedIn) {
         // Çıkış → bildirimleri durdur
         NotificationCenter.instance.stop();

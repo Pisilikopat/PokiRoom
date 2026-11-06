@@ -37,6 +37,8 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
   bool _isToolbarExpanded = false;
   bool _isMultiTouch = false;
   bool _isPinching = false;
+  bool _isMiddleClickPanning = false;
+  Offset? _middlePanLastPos;
   Offset? _lastFocalPoint;
   double _lastScale = 1.0;
   bool _isSaving = false;
@@ -129,6 +131,7 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
   // --- Dokunma & Çizim & Zoom Olayları ---
 
   void _onScaleStart(ScaleStartDetails details) {
+    if (_isMiddleClickPanning) return;
     if (details.pointerCount >= 2) {
       _isMultiTouch = true;
       _isPinching = false;
@@ -155,7 +158,25 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
       return;
     }
 
-    // 3. Normal Çizim Araçları
+    // 3. Boya Kovası (Bucket Tool): Dokunulan kapalı alanı pürüzsüz doldur
+    if (_controller.selectedTool == DrawingTool.bucket) {
+      final worldPoint = _controller.toWorld(details.localFocalPoint);
+      final fillStroke = _controller.fillAt(
+        worldPoint: worldPoint,
+        paperWidth: paperWidth,
+        paperHeight: paperHeight,
+      );
+      if (fillStroke != null) {
+        HapticFeedback.lightImpact();
+        if (widget.isCoop) {
+          _sync?.sendStrokeStart(fillStroke);
+          _sync?.sendStrokeEnd(fillStroke);
+        }
+      }
+      return;
+    }
+
+    // 4. Normal Çizim Araçları
     if (_isToolbarExpanded) {
       setState(() => _isToolbarExpanded = false);
     }
@@ -167,6 +188,7 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
+    if (_isMiddleClickPanning) return;
     // 2 parmakla pinch zoom veya pan (veya çoklu dokunma devam ediyorsa)
     if (details.pointerCount >= 2 || _isMultiTouch) {
       _isMultiTouch = true;
@@ -421,6 +443,27 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
         const SingleActivator(LogicalKeyboardKey.keyS, meta: true): () {
           if (_controller.strokes.isNotEmpty && !_isSaving) _saveCanvasImage();
         },
+        // Araç Kısayolları (F, B, E, H)
+        const SingleActivator(LogicalKeyboardKey.keyF): () {
+          _controller.setTool(DrawingTool.brush);
+          HapticFeedback.selectionClick();
+          setState(() {});
+        },
+        const SingleActivator(LogicalKeyboardKey.keyB): () {
+          _controller.setTool(DrawingTool.bucket);
+          HapticFeedback.selectionClick();
+          setState(() {});
+        },
+        const SingleActivator(LogicalKeyboardKey.keyE): () {
+          _controller.setTool(DrawingTool.strokeEraser);
+          HapticFeedback.selectionClick();
+          setState(() {});
+        },
+        const SingleActivator(LogicalKeyboardKey.keyH): () {
+          _controller.setTool(DrawingTool.hand);
+          HapticFeedback.selectionClick();
+          setState(() {});
+        },
         // Zoom Kısayolları (+, -, 0)
         const SingleActivator(LogicalKeyboardKey.equal, control: true): () => _zoomStep(1.18),
         const SingleActivator(LogicalKeyboardKey.add): () => _zoomStep(1.18),
@@ -438,6 +481,41 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
             // 1. Bilgisayar Mouse Scroll + Dokunmatik İnteraktif Çizim Alanı
             Positioned.fill(
               child: Listener(
+                onPointerDown: (event) {
+                  // Bilgisayarda mouse orta tuşu (tekerlek tuşu / kMiddleMouseButton) ile basılı tutup kaydırma
+                  if ((event.buttons & kMiddleMouseButton) != 0) {
+                    _isMiddleClickPanning = true;
+                    _middlePanLastPos = event.localPosition;
+                    _controller.cancelCurrentStroke();
+                    setState(() {});
+                  }
+                },
+                onPointerMove: (event) {
+                  if (_isMiddleClickPanning && _middlePanLastPos != null) {
+                    final delta = event.localPosition - _middlePanLastPos!;
+                    _middlePanLastPos = event.localPosition;
+
+                    final matrix = _controller.transformController.value.clone();
+                    matrix.storage[12] += delta.dx;
+                    matrix.storage[13] += delta.dy;
+                    _controller.transformController.value = matrix;
+                    setState(() {});
+                  }
+                },
+                onPointerUp: (event) {
+                  if (_isMiddleClickPanning) {
+                    _isMiddleClickPanning = false;
+                    _middlePanLastPos = null;
+                    setState(() {});
+                  }
+                },
+                onPointerCancel: (event) {
+                  if (_isMiddleClickPanning) {
+                    _isMiddleClickPanning = false;
+                    _middlePanLastPos = null;
+                    setState(() {});
+                  }
+                },
                 onPointerSignal: (pointerSignal) {
                   // Bilgisayarda mouse tekerleğiyle yakınlaşma / uzaklaşma
                   if (pointerSignal is PointerScrollEvent) {
@@ -468,9 +546,11 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                   }
                 },
                 child: MouseRegion(
-                  cursor: _controller.selectedTool == DrawingTool.hand
-                      ? SystemMouseCursors.grab
-                      : SystemMouseCursors.precise,
+                  cursor: _isMiddleClickPanning
+                      ? SystemMouseCursors.grabbing
+                      : (_controller.selectedTool == DrawingTool.hand
+                          ? SystemMouseCursors.grab
+                          : SystemMouseCursors.precise),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onScaleStart: _onScaleStart,

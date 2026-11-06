@@ -352,12 +352,7 @@ class CallSignalingService extends ChangeNotifier {
         'echoCancellation': true,
         'noiseSuppression': true,
         'autoGainControl': true,
-        'googEchoCancellation': true,
-        'googEchoCancellation2': true,
-        'googAutoGainControl': true,
-        'googNoiseSuppression': true,
-        'googHighpassFilter': true,
-        'googTypingNoiseDetection': true,
+        'channelCount': 1,
       },
       'video': false,
     });

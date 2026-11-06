@@ -99,6 +99,18 @@ class PokiCanvasPainter extends CustomPainter {
   static void drawStrokeDirect(Canvas canvas, DrawingStroke stroke, Color paperBg) {
     if (stroke.points.isEmpty) return;
 
+    if (stroke.tool == DrawingTool.bucket) {
+      final fillPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = stroke.color.withOpacity(stroke.opacity);
+      for (int i = 0; i < stroke.points.length - 1; i += 2) {
+        final p1 = stroke.points[i];
+        final p2 = stroke.points[i + 1];
+        canvas.drawRect(Rect.fromLTRB(p1.x, p1.y, p2.x, p2.y), fillPaint);
+      }
+      return;
+    }
+
     if (stroke.tool == DrawingTool.pawStamp) {
       _drawPawStamps(canvas, stroke);
       return;

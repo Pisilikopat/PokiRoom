@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 // lib/features/home/home_screen.dart
 import 'dart:typed_data';
 
@@ -59,7 +60,9 @@ class _HomeScreenState extends State<HomeScreen> {
           _avatarUrl = url;
         });
       }
-      NotificationService.instance.syncTokenWithSupabase();
+      if (!kIsWeb) {
+        NotificationService.instance.syncTokenWithSupabase();
+      }
 
       if (me.hasRoom && me.currentRoomId != null) {
         final room = await _rooms.fetchRoom(me.currentRoomId!);

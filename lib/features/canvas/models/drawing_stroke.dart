@@ -6,6 +6,7 @@ enum DrawingTool {
   pen, // İnce tükenmez / kurşun kalem
   brush, // Yumuşak fırça / suluboya
   highlighter, // Yarı saydam fosforlu kalem
+  bucket, // Boya kovası (kapalı alanı doldurur)
   pawStamp, // Pati damgası 🐾
   heartStamp, // Kalp damgası 💖
   eraser, // Silgi (Klasik alan/piksel silgisi)
@@ -16,6 +17,7 @@ enum DrawingTool {
 extension DrawingToolExt on DrawingTool {
   bool get isEraser => this == DrawingTool.eraser;
   bool get isStrokeEraser => this == DrawingTool.strokeEraser;
+  bool get isBucket => this == DrawingTool.bucket;
   bool get isHand => this == DrawingTool.hand;
   bool get isAnyEraser => isEraser || isStrokeEraser;
 
@@ -24,9 +26,11 @@ extension DrawingToolExt on DrawingTool {
       case DrawingTool.pen:
         return 'Kalem';
       case DrawingTool.brush:
-        return 'Fırça';
+        return 'Fırça (F)';
       case DrawingTool.highlighter:
         return 'Fosforlu';
+      case DrawingTool.bucket:
+        return 'Kova (B)';
       case DrawingTool.pawStamp:
         return 'Pati İzi';
       case DrawingTool.heartStamp:
@@ -34,9 +38,9 @@ extension DrawingToolExt on DrawingTool {
       case DrawingTool.eraser:
         return 'Alan Silgi';
       case DrawingTool.strokeEraser:
-        return 'Çizgi Sil';
+        return 'Çizgi Sil (E)';
       case DrawingTool.hand:
-        return 'Kaydır';
+        return 'Kaydır (H)';
     }
   }
 
@@ -48,6 +52,8 @@ extension DrawingToolExt on DrawingTool {
         return Icons.brush_rounded;
       case DrawingTool.highlighter:
         return Icons.format_paint_rounded;
+      case DrawingTool.bucket:
+        return Icons.format_color_fill_rounded;
       case DrawingTool.pawStamp:
         return Icons.pets_rounded;
       case DrawingTool.heartStamp:

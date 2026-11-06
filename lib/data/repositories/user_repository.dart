@@ -83,6 +83,8 @@ class UserRepository {
     final path = '$userId.jpg';
     try {
       var url = _db.storage.from('avatars').getPublicUrl(path);
+      // Çift bucket adını (/avatars/avatars/) temizle
+      url = url.replaceAll('/avatars/avatars/', '/avatars/');
       if (bust) url = '$url?t=${DateTime.now().millisecondsSinceEpoch}';
       return url;
     } catch (_) {

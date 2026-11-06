@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 // lib/features/canvas/logic/canvas_controller.dart
 import 'dart:math' as math;
 import 'dart:ui';
@@ -125,6 +126,15 @@ class CanvasController extends ChangeNotifier {
   }
 
   bool _strokeHitsPoint(DrawingStroke stroke, Offset point, double hitDistance) {
+    if (stroke.tool == DrawingTool.bucket) {
+      for (int i = 0; i < stroke.points.length - 1; i += 2) {
+        final p1 = stroke.points[i];
+        final p2 = stroke.points[i + 1];
+        final rect = Rect.fromLTRB(p1.x, p1.y, p2.x, p2.y);
+        if (rect.contains(point)) return true;
+      }
+      return false;
+    }
     final effectiveDistance = math.max(hitDistance, stroke.strokeWidth * 1.5);
     final r2 = effectiveDistance * effectiveDistance;
 
@@ -239,6 +249,198 @@ class CanvasController extends ChangeNotifier {
     if (_partnerCursor != null) {
       _partnerCursor = null;
       notifyListeners();
+    }
+  }
+
+  /// Boya Kovası (Bucket Tool) — Kapalı alanı BFS flood-fill ile pürüzsüz doldurur
+  DrawingStroke? fillAt({
+    required Offset worldPoint,
+    required double paperWidth,
+    required double paperHeight,
+  }) {
+    if (worldPoint.dx < 0 ||
+        worldPoint.dx > paperWidth ||
+        worldPoint.dy < 0 ||
+        worldPoint.dy > paperHeight) {
+      return null;
+    }
+
+    // Rasterizasyon için hafif grid çözünürlüğü (225 x 300)
+    const int gridW = 225;
+    const int gridH = 300;
+    final double scaleX = gridW / paperWidth;
+    final double scaleY = gridH / paperHeight;
+
+    final grid = Uint8List(gridW * gridH);
+
+    // Mevcut çizgileri (stroke) ızgaraya işle (Bresenham)
+    for (final stroke in _strokes) {
+      if (stroke.isEraser) continue;
+      if (stroke.tool == DrawingTool.bucket) {
+        for (int i = 0; i < stroke.points.length - 1; i += 2) {
+          final p1 = stroke.points[i];
+          final p2 = stroke.points[i + 1];
+          final x1 = (p1.x * scaleX).round().clamp(0, gridW - 1);
+          final y1 = (p1.y * scaleY).round().clamp(0, gridH - 1);
+          final x2 = (p2.x * scaleX).round().clamp(0, gridW - 1);
+          final y2 = (p2.y * scaleY).round().clamp(0, gridH - 1);
+          for (int y = y1; y <= y2; y++) {
+            final rowOffset = y * gridW;
+            for (int x = x1; x <= x2; x++) {
+              grid[rowOffset + x] = 1;
+            }
+          }
+        }
+        continue;
+      }
+
+      final halfW = (stroke.strokeWidth * (scaleX + scaleY) * 0.25).clamp(1.0, 8.0);
+      for (int i = 0; i < stroke.points.length - 1; i++) {
+        final p1 = stroke.points[i];
+        final p2 = stroke.points[i + 1];
+        _rasterizeLine(
+          grid,
+          gridW,
+          gridH,
+          (p1.x * scaleX).round(),
+          (p1.y * scaleY).round(),
+          (p2.x * scaleX).round(),
+          (p2.y * scaleY).round(),
+          halfW.round(),
+        );
+      }
+    }
+
+    final startX = (worldPoint.dx * scaleX).round().clamp(0, gridW - 1);
+    final startY = (worldPoint.dy * scaleY).round().clamp(0, gridH - 1);
+
+    if (grid[startY * gridW + startX] != 0) {
+      return null;
+    }
+
+    // 4 Yönlü BFS Flood-Fill
+    final queueX = <int>[startX];
+    final queueY = <int>[startY];
+    grid[startY * gridW + startX] = 2; // 2 = dolduruldu
+
+    int head = 0;
+    while (head < queueX.length) {
+      final cx = queueX[head];
+      final cy = queueY[head];
+      head++;
+
+      if (cx > 0 && grid[cy * gridW + cx - 1] == 0) {
+        grid[cy * gridW + cx - 1] = 2;
+        queueX.add(cx - 1);
+        queueY.add(cy);
+      }
+      if (cx < gridW - 1 && grid[cy * gridW + cx + 1] == 0) {
+        grid[cy * gridW + cx + 1] = 2;
+        queueX.add(cx + 1);
+        queueY.add(cy);
+      }
+      if (cy > 0 && grid[(cy - 1) * gridW + cx] == 0) {
+        grid[(cy - 1) * gridW + cx] = 2;
+        queueX.add(cx);
+        queueY.add(cy - 1);
+      }
+      if (cy < gridH - 1 && grid[(cy + 1) * gridW + cx] == 0) {
+        grid[(cy + 1) * gridW + cx] = 2;
+        queueX.add(cx);
+        queueY.add(cy + 1);
+      }
+    }
+
+    // Doldurulan pikselleri yatay dikdörtgen aralıklarına (span) indirge
+    final fillPoints = <DrawingPoint>[];
+    final double invScaleX = paperWidth / gridW;
+    final double invScaleY = paperHeight / gridH;
+
+    for (int y = 0; y < gridH; y++) {
+      int x = 0;
+      final rowOffset = y * gridW;
+      while (x < gridW) {
+        if (grid[rowOffset + x] == 2) {
+          final startSpanX = x;
+          while (x < gridW && grid[rowOffset + x] == 2) {
+            x++;
+          }
+          final endSpanX = x;
+          fillPoints.add(DrawingPoint(
+            x: startSpanX * invScaleX,
+            y: y * invScaleY,
+          ));
+          fillPoints.add(DrawingPoint(
+            x: endSpanX * invScaleX,
+            y: (y + 1) * invScaleY,
+          ));
+        } else {
+          x++;
+        }
+      }
+    }
+
+    if (fillPoints.isEmpty) return null;
+
+    final fillStroke = DrawingStroke(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      authorId: myId,
+      authorNickname: myNickname,
+      tool: DrawingTool.bucket,
+      color: _selectedColor,
+      strokeWidth: 1.0,
+      opacity: _selectedOpacity,
+      points: fillPoints,
+    );
+
+    _strokes.add(fillStroke);
+    _redoStack.clear();
+    notifyListeners();
+    return fillStroke;
+  }
+
+  void _rasterizeLine(
+    Uint8List grid,
+    int w,
+    int h,
+    int x0,
+    int y0,
+    int x1,
+    int y1,
+    int radius,
+  ) {
+    int dx = (x1 - x0).abs();
+    int dy = (y1 - y0).abs();
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx - dy;
+
+    int gx0 = x0;
+    int gy0 = y0;
+
+    while (true) {
+      for (int ry = -radius; ry <= radius; ry++) {
+        final ny = gy0 + ry;
+        if (ny < 0 || ny >= h) continue;
+        for (int rx = -radius; rx <= radius; rx++) {
+          final nx = gx0 + rx;
+          if (nx < 0 || nx >= w) continue;
+          if (rx * rx + ry * ry <= radius * radius) {
+            grid[ny * w + nx] = 1;
+          }
+        }
+      }
+
+      if (gx0 == gx1 && gy0 == gy1) break;
+      int e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        gx0 += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        gy0 += sy;
+      }
     }
   }
 

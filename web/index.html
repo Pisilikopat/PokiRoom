@@ -50,12 +50,37 @@
   <script>
     // WebRTC Mobile Audio Autoplay & Output Helper
     (function() {
+      // WebRTC Ses Yönlendirici: Mobil tarayıcılarda (Chrome / Safari) sesin
+      // gizli video elementlerine takılmadan, doğrudan hoparlörden gür çıkmasını sağlar.
       function playAllWebRTCAudio() {
         var elements = document.querySelectorAll('audio, video');
+        var remoteAudioEl = document.getElementById('poki-stream-audio');
+        if (!remoteAudioEl) {
+          remoteAudioEl = document.createElement('audio');
+          remoteAudioEl.id = 'poki-stream-audio';
+          remoteAudioEl.autoplay = true;
+          remoteAudioEl.setAttribute('playsinline', 'true');
+          remoteAudioEl.setAttribute('webkit-playsinline', 'true');
+          document.body.appendChild(remoteAudioEl);
+        }
+
         elements.forEach(function(el) {
           try {
             el.setAttribute('playsinline', 'true');
             el.setAttribute('webkit-playsinline', 'true');
+            el.muted = false;
+            el.volume = 1.0;
+
+            if (el.srcObject && el !== remoteAudioEl) {
+              if (remoteAudioEl.srcObject !== el.srcObject) {
+                remoteAudioEl.muted = false;
+                remoteAudioEl.volume = 1.0;
+                remoteAudioEl.srcObject = el.srcObject;
+                var ap = remoteAudioEl.play();
+                if (ap && ap.catch) ap.catch(function() {});
+              }
+            }
+
             if (el.srcObject && el.paused) {
               var p = el.play();
               if (p && p.catch) p.catch(function() {});
