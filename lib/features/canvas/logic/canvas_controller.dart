@@ -43,6 +43,11 @@ class CanvasController extends ChangeNotifier {
 
   // Seçili araç ve fırça ayarları
   DrawingTool selectedTool = DrawingTool.pen;
+
+  void setTool(DrawingTool tool) {
+    selectedTool = tool;
+    notifyListeners();
+  }
   Color selectedColor = const Color(0xFFE88A9A); // Poki Pembesi
   double strokeWidth = 4.0;
   double opacity = 1.0;
@@ -387,9 +392,9 @@ class CanvasController extends ChangeNotifier {
       authorId: myId,
       authorNickname: myNickname,
       tool: DrawingTool.bucket,
-      color: _selectedColor,
+      color: selectedColor,
       strokeWidth: 1.0,
-      opacity: _selectedOpacity,
+      opacity: opacity,
       points: fillPoints,
     );
 
@@ -431,7 +436,7 @@ class CanvasController extends ChangeNotifier {
         }
       }
 
-      if (gx0 == gx1 && gy0 == gy1) break;
+      if (gx0 == x1 && gy0 == y1) break;
       int e2 = 2 * err;
       if (e2 > -dy) {
         err -= dy;
