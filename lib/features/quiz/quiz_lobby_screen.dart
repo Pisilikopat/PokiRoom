@@ -173,7 +173,7 @@ class _QuizLobbyScreenState extends State<QuizLobbyScreen> {
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: QuizPalette.sage(context),
-                          borderRadius: PokiRadius.all,
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
                           children: [
