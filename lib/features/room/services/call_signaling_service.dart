@@ -160,7 +160,7 @@ class CallSignalingService extends ChangeNotifier {
       if (_pendingOffer != null) {
         final offer = _pendingOffer!;
         _pendingOffer = null;
-        await _processOffer(offer['sdp']!, offer['type']!);
+        await _processOffer(offer['sdp']!, 'offer');
       }
     } catch (e) {
       debugPrint('[CallSignaling] acceptCall error: $e');
@@ -243,22 +243,25 @@ class CallSignalingService extends ChangeNotifier {
     final from = _extract(payload, 'from') as String?;
     if (from == myId) return;
     final sdp = _extract(payload, 'sdp') as String?;
-    final type = _extract(payload, 'type') as String?;
-    if (sdp == null || type == null) return;
+    if (sdp == null || sdp.isEmpty) return;
+
+    const sdpType = 'offer';
 
     if (_pc == null) {
       // Peer connection henüz hazırlanıyorsa offer'ı sakla, bitince işlenecek
-      _pendingOffer = {'sdp': sdp, 'type': type};
+      _pendingOffer = {'sdp': sdp, 'type': sdpType};
       return;
     }
 
-    await _processOffer(sdp, type);
+    await _processOffer(sdp, sdpType);
   }
 
   Future<void> _processOffer(String sdp, String type) async {
     if (_pc == null) return;
     try {
-      await _pc!.setRemoteDescription(RTCSessionDescription(sdp, type));
+      // Ensure type is strictly valid WebRTC SDP type ('offer' or 'answer')
+      final validSdpType = (type == 'offer' || type == 'answer') ? type : 'offer';
+      await _pc!.setRemoteDescription(RTCSessionDescription(sdp, validSdpType));
       await _drainPendingCandidates();
 
       final answer = await _pc!.createAnswer({
@@ -270,7 +273,8 @@ class CallSignalingService extends ChangeNotifier {
       await _broadcast('call_answer', {
         'from': myId,
         'sdp': answer.sdp,
-        'type': answer.type,
+        'sdpType': 'answer',
+        'type': 'answer',
       });
     } catch (e) {
       debugPrint('[CallSignaling] processOffer error: $e');
@@ -281,11 +285,11 @@ class CallSignalingService extends ChangeNotifier {
     final from = _extract(payload, 'from') as String?;
     if (from == myId) return;
     final sdp = _extract(payload, 'sdp') as String?;
-    final type = _extract(payload, 'type') as String?;
-    if (sdp == null || type == null || _pc == null) return;
+    if (sdp == null || sdp.isEmpty || _pc == null) return;
 
     try {
-      await _pc!.setRemoteDescription(RTCSessionDescription(sdp, type));
+      // In WebRTC, an answer SDP type is always 'answer'
+      await _pc!.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
       await _drainPendingCandidates();
     } catch (e) {
       debugPrint('[CallSignaling] onCallAnswer error: $e');
@@ -410,7 +414,8 @@ class CallSignalingService extends ChangeNotifier {
       await _broadcast('call_offer', {
         'from': myId,
         'sdp': offer.sdp,
-        'type': offer.type,
+        'sdpType': 'offer',
+        'type': 'offer',
       });
     }
   }
@@ -486,7 +491,12 @@ class CallSignalingService extends ChangeNotifier {
   dynamic _extract(Map<String, dynamic> payload, String key) {
     final nested = payload['payload'];
     if (nested is Map) {
-      return nested[key] ?? payload[key];
+      final val = nested[key];
+      if (val != null) return val;
+    }
+    // Never allow Supabase Realtime broadcast wrapper ('type': 'broadcast') to corrupt SDP type
+    if (key == 'type' && payload['type'] == 'broadcast') {
+      return null;
     }
     return payload[key];
   }
