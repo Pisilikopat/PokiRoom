@@ -352,6 +352,12 @@ class CallSignalingService extends ChangeNotifier {
         'echoCancellation': true,
         'noiseSuppression': true,
         'autoGainControl': true,
+        'googEchoCancellation': true,
+        'googEchoCancellation2': true,
+        'googAutoGainControl': true,
+        'googNoiseSuppression': true,
+        'googHighpassFilter': true,
+        'googTypingNoiseDetection': true,
       },
       'video': false,
     });
@@ -380,6 +386,9 @@ class CallSignalingService extends ChangeNotifier {
       debugPrint('[CallSignaling] onTrack: streams=${event.streams.length}');
       if (event.streams.isNotEmpty) {
         _remoteRenderer.srcObject = event.streams.first;
+        try {
+          _remoteRenderer.muted = false;
+        } catch (_) {}
         _onRemoteStream.add(event.streams.first);
       }
       _markConnected();

@@ -47,5 +47,52 @@
     <div style="font-weight: 600;">PokiRoom Yükleniyor...</div>
   </div>
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // WebRTC Mobile Audio Autoplay & Output Helper
+    (function() {
+      function playAllWebRTCAudio() {
+        var elements = document.querySelectorAll('audio, video');
+        elements.forEach(function(el) {
+          try {
+            el.setAttribute('playsinline', 'true');
+            el.setAttribute('webkit-playsinline', 'true');
+            if (el.srcObject && el.paused) {
+              var p = el.play();
+              if (p && p.catch) p.catch(function() {});
+            }
+          } catch(e) {}
+        });
+      }
+
+      var observer = new MutationObserver(function(mutations) {
+        for (var i = 0; i < mutations.length; i++) {
+          var nodes = mutations[i].addedNodes;
+          for (var j = 0; j < nodes.length; j++) {
+            var node = nodes[j];
+            if (node.nodeName === 'AUDIO' || node.nodeName === 'VIDEO') {
+              try {
+                node.setAttribute('playsinline', 'true');
+                node.setAttribute('webkit-playsinline', 'true');
+                var p = node.play();
+                if (p && p.catch) p.catch(function() {});
+              } catch(e) {}
+            }
+          }
+        }
+      });
+
+      if (document.documentElement) {
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+      }
+
+      ['click', 'touchstart', 'touchend', 'pointerdown'].forEach(function(evt) {
+        document.addEventListener(evt, function() {
+          playAllWebRTCAudio();
+        }, { passive: true });
+      });
+
+      setInterval(playAllWebRTCAudio, 1000);
+    })();
+  </script>
 </body>
 </html>
