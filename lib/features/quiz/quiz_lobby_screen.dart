@@ -59,6 +59,15 @@ class _QuizLobbyScreenState extends State<QuizLobbyScreen> {
     final count = config.length.questions;
     final List<QuizQuestion> pool = [...config.customQuestions];
 
+    if (config.mode == QuizMode.telepathy) {
+      final bank = [...QuizQuestionBank.telepathyPool]..shuffle(Random());
+      for (final q in bank) {
+        if (pool.length >= count) break;
+        if (!pool.any((p) => p.id == q.id)) pool.add(q);
+      }
+      return pool.take(count).toList();
+    }
+
     if (pool.length < count) {
       final bankPool = config.categories.isNotEmpty
           ? QuizQuestionBank.sample
@@ -157,13 +166,37 @@ class _QuizLobbyScreenState extends State<QuizLobbyScreen> {
                       onChanged: (m) => setState(() => _mode = m),
                     ),
                   ),
-                  _Section(
-                    title: '2 · Kategoriler',
-                    child: QuizCategorySelector(
-                      selected: _categories,
-                      onChanged: (c) => setState(() => _categories = c),
+                  if (_mode == QuizMode.telepathy)
+                    _Section(
+                      title: '2 · Frekans Havuzu',
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: QuizPalette.sage(context),
+                          borderRadius: PokiRadius.all,
+                        ),
+                        child: Row(
+                          children: [
+                            const Text('🧠', style: TextStyle(fontSize: 26)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Telepati modunda ikinize özel 2 seçenekli anlık uyum ve frekans ikilemleri sorulur.',
+                                style: QuizPalette.body(context).copyWith(fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    _Section(
+                      title: '2 · Kategoriler',
+                      child: QuizCategorySelector(
+                        selected: _categories,
+                        onChanged: (c) => setState(() => _categories = c),
+                      ),
                     ),
-                  ),
                   _Section(
                     title: '3 · Tur uzunluğu',
                     child: RoundLengthSelector(

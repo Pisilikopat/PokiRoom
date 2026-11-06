@@ -257,7 +257,7 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
                   title: 'Poki Quiz',
                   badge: '2 Kişilik',
                   subtitle:
-                      'Aklımı Oku veya Ruh İkizi modunda partnerini ne kadar tanıdığını test et.',
+                      'Aklımı Oku, Ruh İkizi veya yeni Telepati modunda partnerinle aynı frekansta mısınız test et.',
                   buttonLabel: 'Quiz Başlat',
                   color: PokiColors.primary.withOpacity(0.3),
                   onTap: _openQuizLobby,

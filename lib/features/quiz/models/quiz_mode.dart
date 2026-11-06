@@ -13,6 +13,13 @@ enum QuizMode {
     'Ruh İkizi miyiz?',
     'İkiniz aynı soruyu aynı anda cevaplarsınız. İkiniz de seçene kadar şıklar buğulu kalır.',
     '💖',
+  ),
+
+  /// Eşzamanlı 2 seçenekli durumlar: Aynı seçeneği seçebilirseniz telepati tutar!
+  telepathy(
+    'Telepati / Frekans',
+    'Aynı anda 2 seçenekli anlık ikilemler gelir. Aynı şeyi hissedip seçebilirseniz telepati tutar ve ortak frekans yakalanır! 🧠✨',
+    '🧠',
   );
 
   const QuizMode(this.label, this.description, this.emoji);

@@ -163,7 +163,8 @@ class QuizEngine {
             side == _chooser.other &&
             _guessPick == null;
       case QuizPhase.answering:
-        return mode == QuizMode.soulmates && !hasLocked(side);
+        return (mode == QuizMode.soulmates || mode == QuizMode.telepathy) &&
+            !hasLocked(side);
       case QuizPhase.revealed:
       case QuizPhase.finished:
         return false;
@@ -257,7 +258,7 @@ class QuizEngine {
 
   /// Taraf kendi cevabını kilitler. [option] yalnızca kendi cihazında/simülasyonda verilir.
   void lockAnswer(QuizSide side, {int? option}) {
-    _requireMode(QuizMode.soulmates);
+    _requireSimultaneous();
     _requirePhase(QuizPhase.answering, 'Şu an cevap aşaması değil');
     if (hasLocked(side)) throw const QuizRuleException('Cevap zaten kilitlendi');
     if (option != null) _checkOption(option);
@@ -273,7 +274,7 @@ class QuizEngine {
 
   /// Daha önce seçimsiz kilitlenen tarafın seçimi açıklanır.
   void revealPick(QuizSide side, int option) {
-    _requireMode(QuizMode.soulmates);
+    _requireSimultaneous();
     _requirePhase(QuizPhase.answering, 'Açıklanacak bir cevap yok');
     if (!hasLocked(side)) {
       throw const QuizRuleException('Bu taraf henüz kilitlemedi');
@@ -334,6 +335,12 @@ class QuizEngine {
 
   void _requireMode(QuizMode expected) {
     if (mode != expected) {
+      throw const QuizRuleException('Bu hamle bu oyun modunda geçersiz');
+    }
+  }
+
+  void _requireSimultaneous() {
+    if (mode != QuizMode.soulmates && mode != QuizMode.telepathy) {
       throw const QuizRuleException('Bu hamle bu oyun modunda geçersiz');
     }
   }

@@ -28,6 +28,22 @@ class QuizVerdict {
       return const QuizVerdict('Keşfedilecek Çok Şey Var 🧭',
           'Hiç sorun değil, yeni sorular yeni sohbetler demek!');
     }
+    if (r.mode == QuizMode.telepathy) {
+      if (p >= 80) {
+        return const QuizVerdict('Telepatik Ruh İkizleri! 🧠💖✨',
+            'Aynı anda aynı şeyleri hissettiniz! Frekansınız resmen uzaydan çekiyor.');
+      }
+      if (p >= 50) {
+        return const QuizVerdict('Yüksek Frekans Uyum! ⚡🐾',
+            'Çoğu ikilemde kalpleriniz ve zihinleriniz birleşti.');
+      }
+      if (p >= 30) {
+        return const QuizVerdict('Tatlı Frekans Kaçamakları 😹',
+            'Bazen aynı bazen zıt, ama sohbeti kesinlikle çok saran bir frekans!');
+      }
+      return const QuizVerdict('Ayrı Tellerden Çalan Aşıklar 🎶🐾',
+          '"Nasıl bunu seçersin :d" diyerek gülüşeceğiniz en tatlı zıtlık!');
+    }
     if (p >= 80) {
       return const QuizVerdict('Ruh İkizisiniz 💖',
           'Neredeyse her şeyde aynı şıkkı seçtiniz. Bu uyum nadir!');

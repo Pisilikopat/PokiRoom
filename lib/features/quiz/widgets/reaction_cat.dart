@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/quiz_palette.dart';
 
-enum CatReaction { correct, wrong, soulmates, opposites }
+enum CatReaction { correct, wrong, soulmates, opposites, telepathyMatch, telepathyMiss }
 
 /// Sonuç tepkisi kedisi. (Emoji + zıplama animasyonu.
 /// Konfeti/kalp ve gerçek kedi çizimi sonraki adımlarda.)
@@ -20,6 +20,8 @@ class ReactionCat extends StatelessWidget {
         CatReaction.wrong => ('🙈', 'Hmm... kafamı kaşıyorum 🤔'),
         CatReaction.soulmates => ('💖🐱', 'Ruh İkizi 💖'),
         CatReaction.opposites => ('🐱↔️🐱', 'Zıt Kutuplar 🐱'),
+        CatReaction.telepathyMatch => ('🧠💖✨', 'TELEPATİ TUTTU! Ortak Frekans! 💫'),
+        CatReaction.telepathyMiss => ('😹⚡', 'Frekans Kaçtı! "Nasıl bunu seçersin :d"'),
       };
 
   @override

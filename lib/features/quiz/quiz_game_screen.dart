@@ -23,6 +23,7 @@ import 'widgets/answer_option_tile.dart';
 import 'widgets/question_card.dart';
 import 'widgets/reaction_cat.dart';
 import 'widgets/thinking_cat.dart';
+import '../room/widgets/hearts_burst.dart';
 
 class QuizGameScreen extends StatefulWidget {
   const QuizGameScreen({
@@ -49,6 +50,8 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
   QuizSync? _sync;
   StreamSubscription<void>? _abandonSub;
   bool _abandonDialogShown = false;
+  bool _showHeartsBurst = false;
+  int? _lastBurstRound;
 
   @override
   void initState() {
@@ -183,6 +186,15 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
 
     final List<QuizQuestion> pool = [...custom];
 
+    if (widget.config.mode == QuizMode.telepathy) {
+      final bank = [...QuizQuestionBank.telepathyPool]..shuffle(Random());
+      for (final q in bank) {
+        if (pool.length >= count) break;
+        if (!pool.any((p) => p.id == q.id)) pool.add(q);
+      }
+      return pool.take(count).toList();
+    }
+
     if (pool.length < count) {
       final bankPool = widget.config.categories.isNotEmpty
           ? QuizQuestionBank.sample
@@ -242,6 +254,14 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
         if (i == chooserPick) return OptionVisual.correct;
         if (i == guesserPick && !rec.matched) return OptionVisual.wrong;
         return OptionVisual.idle;
+      } else if (eng.mode == QuizMode.telepathy) {
+        if (rec.matched) {
+          if (i == myPick) return OptionVisual.correct;
+        } else {
+          if (i == myPick) return OptionVisual.wrong;
+          if (i == partnerPick) return OptionVisual.partnerPick;
+        }
+        return OptionVisual.idle;
       } else {
         if (rec.matched) {
           if (i == myPick) return OptionVisual.correct;
@@ -277,6 +297,10 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
         return rec.matched
             ? '✨ Doğru tahmin! +10 Pati Puanı'
             : '😿 Yanlış tahmin...';
+      } else if (eng.mode == QuizMode.telepathy) {
+        return rec.matched
+            ? '🧠💖 Telepati Tuttu! Ortak Frekans! 💫'
+            : '😹⚡ Frekans Kaçtı! "Nasıl bunu seçersin :d"';
       } else {
         return rec.matched ? '💖 Ruh İkizisiniz!' : '🐱 Zıt kutuplar...';
       }
@@ -297,6 +321,13 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
       }
     }
 
+    if (eng.mode == QuizMode.telepathy) {
+      if (eng.hasLocked(QuizSide.me)) {
+        return 'Frekansını kilitledin 🧠 Partnerin bekleniyor...';
+      }
+      return 'Şu an ne hissederdin? İçinden geleni seç! ⚡';
+    }
+
     if (eng.hasLocked(QuizSide.me)) {
       return 'Seçimin kilitlendi 🔒 Partner bekleniyor...';
     }
@@ -311,6 +342,12 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
       if (_controller.engine.mode == QuizMode.readMyMind) {
         return ReactionCat(
           reaction: rec.matched ? CatReaction.correct : CatReaction.wrong,
+        );
+      } else if (_controller.engine.mode == QuizMode.telepathy) {
+        return ReactionCat(
+          reaction: rec.matched
+              ? CatReaction.telepathyMatch
+              : CatReaction.telepathyMiss,
         );
       } else {
         return ReactionCat(
@@ -350,6 +387,17 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) => _navigate());
         }
 
+        if (phase == QuizPhase.revealed) {
+          final rec = eng.lastRecord;
+          if (rec != null && rec.matched && eng.mode == QuizMode.telepathy) {
+            if (_lastBurstRound != eng.index) {
+              _lastBurstRound = eng.index;
+              _showHeartsBurst = true;
+              HapticFeedback.mediumImpact();
+            }
+          }
+        }
+
         final question = eng.question;
         final canAct = eng.canAct(QuizSide.me);
 
@@ -362,7 +410,9 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
               Navigator.of(context).pop();
             }
           },
-          child: Scaffold(
+          child: Stack(
+            children: [
+              Scaffold(
             backgroundColor: QuizPalette.background(context),
             appBar: AppBar(
               backgroundColor: QuizPalette.background(context),
@@ -433,8 +483,16 @@ class _QuizGameScreenState extends State<QuizGameScreen> {
               ),
             ),
           ),
-        );
-      },
+          if (_showHeartsBurst)
+            Positioned.fill(
+              child: HeartsBurst(
+                onDone: () {
+                  if (mounted) setState(() => _showHeartsBurst = false);
+                },
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -460,7 +518,9 @@ class _ScoreBar extends StatelessWidget {
           Text(
             isMind
                 ? '🐾 ${eng.patiPoints} Pati Puanı'
-                : '💖 ${eng.matchesSoFar} Ruh İkizi · 🐱 ${eng.opposesSoFar} Zıt',
+                : eng.mode == QuizMode.telepathy
+                    ? '🧠✨ ${eng.matchesSoFar} Frekans · 😹 ${eng.opposesSoFar} Kaçış'
+                    : '💖 ${eng.matchesSoFar} Ruh İkizi · 🐱 ${eng.opposesSoFar} Zıt',
             style: QuizPalette.subtitle(context),
           ),
           Text(

@@ -139,10 +139,11 @@ class QuizGameController extends ChangeNotifier {
   void _scheduleSimulatedPartner() {
     if (!engine.canAct(QuizSide.partner)) return;
     final delay = Duration(milliseconds: 1200 + _random.nextInt(1800));
+    final optCount = max(1, engine.question.options.length);
     _partnerTimer = Timer(delay, () {
       if (_disposed || !engine.canAct(QuizSide.partner)) return;
       try {
-        _applyMove(QuizSide.partner, _random.nextInt(4));
+        _applyMove(QuizSide.partner, _random.nextInt(optCount));
       } on QuizRuleException {
         return;
       }

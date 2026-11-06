@@ -23,7 +23,9 @@ class QuizResultScreen extends StatelessWidget {
 
   String get _statLine => result.mode == QuizMode.readMyMind
       ? '🐾 ${result.patiPoints} Pati Puanı · ${result.matches}/${result.total} doğru tahmin'
-      : '💖 ${result.soulmates} Ruh İkizi · 🐱 ${result.opposites} Zıt Kutup';
+      : result.mode == QuizMode.telepathy
+          ? '🧠✨ ${result.matches} Telepati Tutuşu · 😹 ${result.opposites} Frekans Kaçışı'
+          : '💖 ${result.soulmates} Ruh İkizi · 🐱 ${result.opposites} Zıt Kutup';
 
   void _soon(BuildContext context, String text) {
     ScaffoldMessenger.of(context)
