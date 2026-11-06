@@ -121,9 +121,6 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                   ),
                 ),
               ),
-                  ),
-                ),
-              ),
               Column(
                 children: [
                   const SizedBox(height: 20),
