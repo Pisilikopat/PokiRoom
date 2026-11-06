@@ -91,6 +91,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   String? _highlightedMessageId;
   Timer? _highlightTimer;
   Timer? _searchDebounceTimer;
+  final Map<String, GlobalKey> _messageKeys = {};
 
   final List<StreamSubscription<dynamic>> _subs = [];
   bool _foreground = true;
@@ -356,35 +357,145 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     _jumpToMessage(_searchResults![_searchMatchIndex]);
   }
 
-  void _jumpToMessage(PokiMessage target) {
-    if (!_list.any((m) => m.id == target.id)) {
-      _olderMessages.add(target);
+  void _jumpToMessage(PokiMessage target) => _scrollToMessage(target);
+
+  void _onReplyTap(String replyMessageId) {
+    if (replyMessageId.isEmpty) return;
+    _scrollToMessageId(replyMessageId);
+  }
+
+  Future<bool> _ensureMessageLoaded(String messageId) async {
+    if (_list.any((m) => m.id == messageId)) return true;
+
+    // Hedef mesaj yüklenene kadar eski mesajları parça parça çek
+    int batches = 6;
+    while (!_list.any((m) => m.id == messageId) && _hasMoreOlder && batches > 0) {
+      batches--;
+      final oldest = _list.isNotEmpty ? _list.last : null;
+      if (oldest == null) break;
+
+      final batch = await _messages.fetchOlderMessages(
+        widget.roomId,
+        before: oldest.createdAt,
+        limit: 40,
+      );
+      if (!mounted) return false;
+      if (batch.isEmpty) {
+        _hasMoreOlder = false;
+        break;
+      }
+      if (batch.length < 40) {
+        _hasMoreOlder = false;
+      }
+      _olderMessages.addAll(batch);
       _rebuildMergedList();
+      await Future.delayed(const Duration(milliseconds: 16));
+    }
+
+    // Listede hala yoksa tekil olarak çek
+    if (!_list.any((m) => m.id == messageId)) {
+      final single = await _messages.fetchSingleMessage(messageId);
+      if (!mounted) return false;
+      if (single != null) {
+        _olderMessages.add(single);
+        _rebuildMergedList();
+      }
+    }
+
+    return _list.any((m) => m.id == messageId);
+  }
+
+  Future<void> _scrollToMessageId(String messageId) async {
+    final existing = _list.where((m) => m.id == messageId).firstOrNull;
+    if (existing != null) {
+      await _scrollToMessage(existing);
+      return;
+    }
+
+    _showToast('🐾 Yanıtlanan mesaj aranıyor...');
+    final loaded = await _ensureMessageLoaded(messageId);
+    if (!loaded || !mounted) {
+      if (mounted) {
+        _showToast('Yanıtlanan mesaj bulunamadı veya silinmiş 🐾');
+      }
+      return;
+    }
+
+    final target = _list.firstWhere((m) => m.id == messageId);
+    await _scrollToMessage(target);
+  }
+
+  Future<void> _scrollToMessage(PokiMessage target) async {
+    if (!_list.any((m) => m.id == target.id)) {
+      final loaded = await _ensureMessageLoaded(target.id);
+      if (!loaded || !mounted) return;
     }
 
     final idx = _list.indexWhere((m) => m.id == target.id);
-    if (idx != -1 && _scrollController.hasClients) {
-      final targetOffset =
-          (idx * 72.0).clamp(0.0, _scrollController.position.maxScrollExtent);
-      _scrollController.animateTo(
-        targetOffset,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeInOut,
+    if (idx == -1 || !_scrollController.hasClients) return;
+
+    final key = _messageKeys.putIfAbsent(target.id, () => GlobalKey());
+
+    // 1. Zaten ekranda / önbellekte varsa akıcı şekilde ortaya hizala
+    if (key.currentContext != null) {
+      await Scrollable.ensureVisible(
+        key.currentContext!,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeInOutCubic,
       );
+    } else {
+      // 2. Uzaktaysa gerçek ortalama yüksekliği hesaplayıp oraya sıçra
+      final max = _scrollController.position.maxScrollExtent;
+      final avgHeight = max > 0 && _list.length > 1
+          ? (max / (_list.length - 1)).clamp(65.0, 180.0)
+          : 90.0;
+      final targetOffset = (idx * avgHeight).clamp(0.0, max);
+      _scrollController.jumpTo(targetOffset);
+
+      // Çerçevenin oluşturulmasını bekle
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (!mounted) return;
+
+      final ctx = _messageKeys[target.id]?.currentContext;
+      if (ctx != null) {
+        await Scrollable.ensureVisible(
+          ctx,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+        );
+      } else {
+        // İkincil hassas hizalama
+        final newMax = _scrollController.position.maxScrollExtent;
+        final newAvg = newMax > 0 && _list.length > 1 ? newMax / (_list.length - 1) : avgHeight;
+        _scrollController.jumpTo((idx * newAvg).clamp(0.0, newMax));
+        await Future.delayed(const Duration(milliseconds: 50));
+        if (mounted && _messageKeys[target.id]?.currentContext != null) {
+          await Scrollable.ensureVisible(
+            _messageKeys[target.id]!.currentContext!,
+            alignment: 0.5,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      }
     }
 
-    setState(() {
-      _highlightedMessageId = target.id;
-    });
-
-    _highlightTimer?.cancel();
-    _highlightTimer = Timer(const Duration(milliseconds: 2500), () {
-      if (mounted && _highlightedMessageId == target.id) {
-        setState(() {
-          _highlightedMessageId = null;
-        });
-      }
-    });
+    // 3. Mesajı parlayan turuncu çerçeveyle vurgula
+    if (mounted) {
+      setState(() {
+        _highlightedMessageId = target.id;
+      });
+      _highlightTimer?.cancel();
+      _highlightTimer = Timer(const Duration(milliseconds: 2800), () {
+        if (mounted && _highlightedMessageId == target.id) {
+          setState(() {
+            _highlightedMessageId = null;
+          });
+        }
+      });
+    }
   }
 
   void _setState(VoidCallback fn) {
@@ -1125,6 +1236,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     return ListView.builder(
       controller: _scrollController,
       reverse: true,
+      cacheExtent: 1500.0,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: totalCount,
       itemBuilder: (context, index) {
@@ -1183,13 +1295,14 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
         final m = _list[index];
         final mine = m.senderId == _myId;
         return MessageBubble(
-          key: ValueKey(m.id),
+          key: _messageKeys.putIfAbsent(m.id, () => GlobalKey()),
           message: m,
           isMine: mine,
           isHighlighted: m.id == _highlightedMessageId,
           onFoggyRevealed: () => _onFoggyRevealed(m.id),
           onLongPress: () => _onMessageLongPress(m, mine),
           onSwipeReply: _startReply,
+          onReplyTap: _onReplyTap,
           onBiteBack: () => _sendBite(),
           partnerNickname: _partner?.nickname ?? 'Partnerin',
         );

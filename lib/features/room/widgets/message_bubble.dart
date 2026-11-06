@@ -21,7 +21,11 @@ class MessageBubble extends StatelessWidget {
     this.isHighlighted = false,
     this.onBiteBack,
     this.partnerNickname = 'Partnerin',
+    this.onReplyTap,
   });
+
+  /// Yanıtlanan alıntı kutucuğuna tıklandığında ilgili mesaja gitme aksiyonu
+  final void Function(String messageId)? onReplyTap;
 
   final PokiMessage message;
   final bool isMine;
@@ -107,6 +111,7 @@ class MessageBubble extends StatelessWidget {
       // Sesli mesaj
       if (message.type == 'voice') {
         final voiceData = message.voiceData;
+        final reply = message.replyInfo;
         if (voiceData != null) {
           content = Align(
             alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -132,10 +137,28 @@ class MessageBubble extends StatelessWidget {
                         ]
                       : PokiShadows.softOf(context),
                 ),
-                child: VoiceMessageBubble(
-                  voice: voiceData,
-                  isMine: isMine,
-                  meta: _meta(context),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (reply != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 2),
+                        child: _QuotedReplyBox(
+                          reply: reply,
+                          isDark: isDark,
+                          onTap: onReplyTap != null && reply.messageId.isNotEmpty
+                              ? () => onReplyTap!(reply.messageId)
+                              : null,
+                        ),
+                      ),
+                    ],
+                    VoiceMessageBubble(
+                      voice: voiceData,
+                      isMine: isMine,
+                      meta: _meta(context),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -225,7 +248,13 @@ class MessageBubble extends StatelessWidget {
                           Text('🌫️ Buğulu mesaj', style: textTheme.labelSmall),
                     ),
                   if (reply != null) ...[
-                    _QuotedReplyBox(reply: reply, isDark: isDark),
+                    _QuotedReplyBox(
+                      reply: reply,
+                      isDark: isDark,
+                      onTap: onReplyTap != null && reply.messageId.isNotEmpty
+                          ? () => onReplyTap!(reply.messageId)
+                          : null,
+                    ),
                     const SizedBox(height: 6),
                   ],
                   Align(
@@ -507,46 +536,78 @@ class _SwipeReplyIndicator extends StatelessWidget {
 }
 
 class _QuotedReplyBox extends StatelessWidget {
-  const _QuotedReplyBox({required this.reply, required this.isDark});
+  const _QuotedReplyBox({
+    required this.reply,
+    required this.isDark,
+    this.onTap,
+  });
+
   final PokiReplyInfo reply;
   final bool isDark;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.07),
+    final accentColor = isDark ? PokiColors.lampOn : PokiColors.primaryButton;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(8),
-        border: Border(
-          left: BorderSide(
-            color: isDark ? PokiColors.lampOn : PokiColors.primaryButton,
-            width: 3.5,
+        splashColor: accentColor.withOpacity(0.12),
+        highlightColor: accentColor.withOpacity(0.06),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.07),
+            borderRadius: BorderRadius.circular(8),
+            border: Border(
+              left: BorderSide(
+                color: accentColor,
+                width: 3.5,
+              ),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      reply.senderNickname,
+                      style: textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: accentColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      reply.cleanSnippet,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: PokiColors.textOf(context).withOpacity(0.75),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onTap != null) ...[
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.reply_rounded,
+                  size: 16,
+                  color: accentColor.withOpacity(0.7),
+                ),
+              ],
+            ],
           ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            reply.senderNickname,
-            style: textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: isDark ? PokiColors.lampOn : PokiColors.primaryButton,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            reply.cleanSnippet,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: textTheme.bodySmall?.copyWith(
-              color: PokiColors.textOf(context).withOpacity(0.75),
-            ),
-          ),
-        ],
       ),
     );
   }

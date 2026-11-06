@@ -48,6 +48,17 @@ class MessageRepository {
         .toList();
   }
 
+  /// Tek bir mesajı ID'ye göre getirir.
+  Future<PokiMessage?> fetchSingleMessage(String messageId) async {
+    final res = await _db
+        .from('messages')
+        .select()
+        .eq('id', messageId)
+        .maybeSingle();
+    if (res == null) return null;
+    return PokiMessage.fromMap(res as Map<String, dynamic>);
+  }
+
   /// Tüm oda geçmişinde kelime ve mesaj türüne göre arama yapar.
   Future<List<PokiMessage>> searchMessages(
     String roomId, {
