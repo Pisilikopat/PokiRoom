@@ -28,6 +28,15 @@ class CoopCanvasSync {
   Timer? _cursorTimer;
   Offset? _pendingCursorPos;
 
+  static dynamic _extract(Map<String, dynamic> payload, String key) {
+    final nested = payload['payload'];
+    if (nested is Map) {
+      final val = nested[key];
+      if (val != null) return val;
+    }
+    return payload[key];
+  }
+
   Future<void> init() async {
     final channelName = 'room:$roomId:canvas';
     _channel = _db.channel(channelName);
@@ -35,7 +44,8 @@ class CoopCanvasSync {
     _channel!
       .onBroadcast(event: 'stroke_start', callback: (payload) {
         try {
-          final map = payload['stroke'] as Map<String, dynamic>?;
+          final rawMap = _extract(payload, 'stroke');
+          final map = (rawMap is Map) ? rawMap.cast<String, dynamic>() : null;
           if (map != null) {
             final stroke = DrawingStroke.fromMap(map);
             if (stroke.authorId != controller.myId) {
@@ -48,8 +58,8 @@ class CoopCanvasSync {
       })
       .onBroadcast(event: 'stroke_chunk', callback: (payload) {
         try {
-          final strokeId = payload['id'] as String?;
-          final pointsList = (payload['points'] as List?) ?? [];
+          final strokeId = _extract(payload, 'id') as String?;
+          final pointsList = (_extract(payload, 'points') as List?) ?? [];
           if (strokeId != null && pointsList.isNotEmpty) {
             final points = pointsList
                 .map((p) => DrawingPoint.fromMap((p as Map).cast<String, dynamic>()))
@@ -62,7 +72,8 @@ class CoopCanvasSync {
       })
       .onBroadcast(event: 'stroke_end', callback: (payload) {
         try {
-          final map = payload['stroke'] as Map<String, dynamic>?;
+          final rawMap = _extract(payload, 'stroke');
+          final map = (rawMap is Map) ? rawMap.cast<String, dynamic>() : null;
           if (map != null) {
             final stroke = DrawingStroke.fromMap(map);
             if (stroke.authorId != controller.myId) {
@@ -75,7 +86,7 @@ class CoopCanvasSync {
       })
       .onBroadcast(event: 'stroke_undo', callback: (payload) {
         try {
-          final strokeId = payload['strokeId'] as String?;
+          final strokeId = _extract(payload, 'strokeId') as String?;
           if (strokeId != null) {
             controller.onPartnerUndo(strokeId);
           }
@@ -85,7 +96,7 @@ class CoopCanvasSync {
       })
       .onBroadcast(event: 'stroke_delete', callback: (payload) {
         try {
-          final strokeId = payload['strokeId'] as String?;
+          final strokeId = _extract(payload, 'strokeId') as String?;
           if (strokeId != null) {
             controller.deleteStrokeById(strokeId);
           }
@@ -102,7 +113,7 @@ class CoopCanvasSync {
       })
       .onBroadcast(event: 'sync_request', callback: (payload) {
         try {
-          final fromId = payload['fromId'] as String?;
+          final fromId = _extract(payload, 'fromId') as String?;
           if (fromId != null && fromId != controller.myId && controller.strokes.isNotEmpty) {
             sendSyncResponse(fromId);
           }
@@ -112,13 +123,13 @@ class CoopCanvasSync {
       })
       .onBroadcast(event: 'sync_response', callback: (payload) {
         try {
-          final targetId = payload['targetId'] as String?;
+          final targetId = _extract(payload, 'targetId') as String?;
           if (targetId == controller.myId) {
-            final list = (payload['strokes'] as List?) ?? [];
+            final list = (_extract(payload, 'strokes') as List?) ?? [];
             final strokes = list
                 .map((s) => DrawingStroke.fromMap((s as Map).cast<String, dynamic>()))
                 .toList();
-            if (strokes.isNotEmpty && controller.strokes.isEmpty) {
+            if (strokes.isNotEmpty) {
               controller.loadInitialStrokes(strokes);
             }
           }
@@ -128,12 +139,12 @@ class CoopCanvasSync {
       })
       .onBroadcast(event: 'cursor', callback: (payload) {
         try {
-          final authorId = payload['authorId'] as String?;
+          final authorId = _extract(payload, 'authorId') as String?;
           if (authorId != controller.myId) {
-            final x = (payload['x'] as num).toDouble();
-            final y = (payload['y'] as num).toDouble();
-            final nick = payload['nick'] as String? ?? 'Partner';
-            final colorInt = (payload['color'] as num?)?.toInt() ?? 0xFFE88A9A;
+            final x = (_extract(payload, 'x') as num).toDouble();
+            final y = (_extract(payload, 'y') as num).toDouble();
+            final nick = _extract(payload, 'nick') as String? ?? 'Partner';
+            final colorInt = (_extract(payload, 'color') as num?)?.toInt() ?? 0xFFE88A9A;
             controller.onPartnerCursor(Offset(x, y), nick, Color(colorInt));
           }
         } catch (e) {
@@ -144,6 +155,12 @@ class CoopCanvasSync {
         if (status == RealtimeSubscribeStatus.subscribed) {
           // Odaya girer girmez partnerden güncel tuvali iste
           _sendSyncRequest();
+          // Eğer 1.5 sn sonra hala çizgiler boşsa tekrar dene (rejoin garantisi)
+          Timer(const Duration(milliseconds: 1500), () {
+            if (controller.strokes.isEmpty) {
+              _sendSyncRequest();
+            }
+          });
         }
       });
   }

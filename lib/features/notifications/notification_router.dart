@@ -34,6 +34,7 @@ class NotificationRouter {
       case NotificationType.poke:
       case NotificationType.foggyRevealed:
       case NotificationType.knock:
+      case NotificationType.message:
         nav.popUntil((route) => route.isFirst);
     }
   }

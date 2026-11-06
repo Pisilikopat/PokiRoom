@@ -1,3 +1,4 @@
+import '../../data/services/game_lobby_service.dart';
 // Poki Tuval & İki Pati Bir Tuval - v1.1.0
 // lib/features/canvas/poki_canvas_screen.dart
 import 'dart:typed_data';
@@ -33,6 +34,7 @@ class PokiCanvasScreen extends StatefulWidget {
 class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
   late final CanvasController _controller;
   CoopCanvasSync? _sync;
+  Timer? _canvasHeartbeatTimer;
 
   bool _isToolbarExpanded = false;
   bool _isMultiTouch = false;
@@ -64,6 +66,11 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
     if (widget.isCoop) {
       _sync = CoopCanvasSync(roomId: widget.roomId, controller: _controller);
       _sync!.init();
+      GameLobbyService.instance.notifyInCanvas(active: true);
+      _canvasHeartbeatTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => GameLobbyService.instance.notifyInCanvas(active: true),
+      );
     }
 
     RoomPresence.current?.setActivity(PokiActivity.inApp);
@@ -122,6 +129,10 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
 
   @override
   void dispose() {
+    _canvasHeartbeatTimer?.cancel();
+    if (widget.isCoop) {
+      GameLobbyService.instance.notifyInCanvas(active: false);
+    }
     _sync?.dispose();
     _controller.removeListener(_onCanvasUpdated);
     _controller.dispose();

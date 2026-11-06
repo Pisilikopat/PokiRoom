@@ -138,7 +138,11 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
             final activeQuiz = GameLobbyService.instance.activeQuizInvite;
             final activePuzzle = GameLobbyService.instance.activePuzzleInvite;
             final activeCanvas = GameLobbyService.instance.activeCanvasInvite;
-            final hasActive = activeQuiz != null || activePuzzle != null || activeCanvas != null;
+            final isCanvasRunning = GameLobbyService.instance.isCanvasActive;
+            final hasActive = activeQuiz != null ||
+                activePuzzle != null ||
+                activeCanvas != null ||
+                isCanvasRunning;
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -190,7 +194,13 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                if (activeCanvas != null) ...[
+                if (isCanvasRunning) ...[
+                  _ActiveCanvasLiveCard(
+                    partnerNickname: GameLobbyService.instance.canvasPartnerNickname,
+                    onJoin: _openCoopCanvas,
+                  ),
+                  const SizedBox(height: 12),
+                ] else if (activeCanvas != null) ...[
                   _ActiveCanvasInviteCard(
                     invite: activeCanvas,
                     onJoin: () => _joinCanvas(activeCanvas),
@@ -273,10 +283,11 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
                 _GameLauncherCard(
                   emoji: '🐾🎨',
                   title: 'İki Pati Bir Tuval',
-                  badge: 'Canlı Birlikte',
-                  subtitle:
-                      'Partnerinle aynı anda, canlı ve eş zamanlı resim çiz. Fırçalar, renkler ve pati damgaları!',
-                  buttonLabel: 'Birlikte Çiz',
+                  badge: isCanvasRunning ? 'CANLI ÇİZİM 🎨' : 'Canlı Birlikte',
+                  subtitle: isCanvasRunning
+                      ? 'Partnerin (${GameLobbyService.instance.canvasPartnerNickname}) şu an tuvalde çiziyor!'
+                      : 'Partnerinle aynı anda, canlı ve eş zamanlı resim çiz. Fırçalar, renkler ve pati damgaları!',
+                  buttonLabel: isCanvasRunning ? 'Tuvale Geri Dön 🐾' : 'Birlikte Çiz',
                   color: const Color(0xFFE88A9A).withOpacity(0.25),
                   onTap: _openCoopCanvas,
                 ),
@@ -631,6 +642,99 @@ class _ActiveCanvasInviteCard extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ActiveCanvasLiveCard extends StatelessWidget {
+  const _ActiveCanvasLiveCard({
+    required this.partnerNickname,
+    required this.onJoin,
+  });
+
+  final String partnerNickname;
+  final VoidCallback onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF0F3),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE88A9A), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE88A9A).withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Text('🎨', style: TextStyle(fontSize: 32)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'İki Pati Bir Tuval',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF4A403A),
+                          ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade600,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'DEVAM EDİYOR',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$partnerNickname şu an tuvalde çiziyor!',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF7A6B63),
+                      ),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE88A9A),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+            onPressed: onJoin,
+            child: const Text(
+              'Geri Dön 🐾',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
             ),
           ),
         ],

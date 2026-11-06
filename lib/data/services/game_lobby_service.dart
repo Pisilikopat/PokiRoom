@@ -73,6 +73,25 @@ class GameLobbyService extends ChangeNotifier {
   CanvasInvite? get activeCanvasInvite =>
       (_activeCanvasInvite?.isExpired ?? true) ? null : _activeCanvasInvite;
 
+  bool _isPartnerInCanvas = false;
+  String? _canvasPartnerNickname;
+  DateTime? _lastCanvasPresence;
+  Timer? _canvasExpiryTimer;
+
+  bool get isCanvasActive {
+    if (_activeCanvasInvite != null && !_activeCanvasInvite!.isExpired) return true;
+    if (!_isPartnerInCanvas) return false;
+    if (_lastCanvasPresence == null) return false;
+    return DateTime.now().difference(_lastCanvasPresence!) < const Duration(seconds: 15);
+  }
+
+  String get canvasPartnerNickname {
+    if (_activeCanvasInvite != null && !_activeCanvasInvite!.isExpired) {
+      return _activeCanvasInvite!.hostNickname;
+    }
+    return _canvasPartnerNickname ?? 'Partnerin';
+  }
+
   final StreamController<CanvasInvite> _canvasInviteEvents =
       StreamController<CanvasInvite>.broadcast();
   Stream<CanvasInvite> get onCanvasInvite => _canvasInviteEvents.stream;
@@ -111,10 +130,35 @@ class GameLobbyService extends ChangeNotifier {
         .onBroadcast(event: 'puzzle_invite', callback: _handlePuzzleInvite)
         .onBroadcast(event: 'puzzle_cancel', callback: (_) => clearPuzzleInvite())
         .onBroadcast(event: 'canvas_invite', callback: _handleCanvasInvite)
+        .onBroadcast(event: 'canvas_presence', callback: _handleCanvasPresence)
         .onBroadcast(event: 'canvas_cancel', callback: (_) => clearCanvasInvite())
         .subscribe();
 
     _channel = channel;
+  }
+
+  void _handleCanvasPresence(Map<String, dynamic> payload) {
+    final nested = payload['payload'];
+    final data = nested is Map ? nested.cast<String, dynamic>() : payload;
+
+    final from = data['from'] as String?;
+    if (from == _myId) return;
+
+    final active = (data['active'] as bool?) ?? false;
+    final nickname = (data['nickname'] as String?) ?? 'Partnerin';
+
+    _isPartnerInCanvas = active;
+    _canvasPartnerNickname = nickname;
+    _lastCanvasPresence = active ? DateTime.now() : null;
+
+    _canvasExpiryTimer?.cancel();
+    if (active) {
+      _canvasExpiryTimer = Timer(const Duration(seconds: 15), () {
+        _isPartnerInCanvas = false;
+        notifyListeners();
+      });
+    }
+    notifyListeners();
   }
 
   void _handleCanvasInvite(Map<String, dynamic> payload) {
@@ -195,6 +239,24 @@ class GameLobbyService extends ChangeNotifier {
       _puzzleInviteEvents.add(invite);
       notifyListeners();
     } catch (_) {}
+  }
+
+  Future<void> notifyInCanvas({required bool active, String? myNickname}) async {
+    final myId = _myId ?? _db.auth.currentUser?.id;
+    final nick = myNickname ??
+        (_db.auth.currentUser?.userMetadata?['nickname'] as String?) ??
+        'Partnerin';
+    final payload = {
+      'from': myId,
+      'nickname': nick,
+      'active': active,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    await _channel?.sendBroadcastMessage(
+      event: 'canvas_presence',
+      payload: payload,
+    );
   }
 
   Future<void> sendCanvasInvite(String myNickname) async {
@@ -279,6 +341,7 @@ class GameLobbyService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _canvasExpiryTimer?.cancel();
     _disposeChannel();
     _canvasInviteEvents.close();
     _quizInviteEvents.close();

@@ -6,7 +6,8 @@ enum NotificationType {
   stickerCreated('sticker_created', '🎨'),
   memoryPinned('memory_pinned', '📌'),
   foggyRevealed('foggy_revealed', '👀'),
-  knock('knock', '🚪');
+  knock('knock', '🚪'),
+  message('message', '💬');
 
   const NotificationType(this.wire, this.emoji);
 
@@ -39,6 +40,8 @@ enum NotificationType {
         ),
       NotificationType.knock =>
         (title: 'Tık tık!', body: '🚪 $n odanın kapısını tıklattı!'),
+      NotificationType.message =>
+        (title: '🐾 $n', body: '💬 Yeni bir mesaj yazdı.'),
     };
   }
 }
