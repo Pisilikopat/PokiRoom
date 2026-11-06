@@ -1,3 +1,4 @@
+import '../canvas/poki_canvas_screen.dart';
 // lib/features/arcade/games_hub_screen.dart
 import 'package:flutter/material.dart';
 
@@ -45,6 +46,42 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
           config: invite.config,
           deck: QuizDeck(invite.questions),
           isHost: false,
+        ),
+      ),
+    );
+  }
+
+  void _joinCanvas(CanvasInvite invite) {
+    GameLobbyService.instance.clearCanvasInvite();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PokiCanvasScreen(
+          roomId: widget.roomId,
+          isCoop: true,
+        ),
+      ),
+    );
+  }
+
+  void _openSoloCanvas() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PokiCanvasScreen(
+          roomId: widget.roomId,
+          isCoop: false,
+        ),
+      ),
+    );
+  }
+
+  void _openCoopCanvas() {
+    final nick = Supabase.instance.client.auth.currentUser?.userMetadata?['nickname'] as String? ?? 'Partnerin';
+    GameLobbyService.instance.sendCanvasInvite(nick);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PokiCanvasScreen(
+          roomId: widget.roomId,
+          isCoop: true,
         ),
       ),
     );
@@ -99,7 +136,7 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
           builder: (context, _) {
             final activeQuiz = GameLobbyService.instance.activeQuizInvite;
             final activePuzzle = GameLobbyService.instance.activePuzzleInvite;
-            final hasActive = activeQuiz != null || activePuzzle != null;
+            final hasActive = activeQuiz != null || activePuzzle != null || activeCanvas != null;
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -148,6 +185,13 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
                   _ActivePuzzleInviteCard(
                     invite: activePuzzle,
                     onJoin: () => _joinPuzzle(activePuzzle),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (activeCanvas != null) ...[
+                  _ActiveCanvasInviteCard(
+                    invite: activeCanvas,
+                    onJoin: () => _joinCanvas(activeCanvas),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -219,6 +263,34 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
                   buttonLabel: 'Puzzle Başlat',
                   color: PokiColors.incomingBubble.withOpacity(0.5),
                   onTap: _openPuzzleSetup,
+                ),
+
+                const SizedBox(height: 14),
+
+                // Kart C: İki Pati Bir Tuval (Co-op)
+                _GameLauncherCard(
+                  emoji: '🐾🎨',
+                  title: 'İki Pati Bir Tuval',
+                  badge: 'Canlı Birlikte',
+                  subtitle:
+                      'Partnerinle aynı anda, canlı ve eş zamanlı resim çiz. Fırçalar, renkler ve pati damgaları!',
+                  buttonLabel: 'Birlikte Çiz',
+                  color: const Color(0xFFE88A9A).withOpacity(0.25),
+                  onTap: _openCoopCanvas,
+                ),
+
+                const SizedBox(height: 14),
+
+                // Kart D: Poki Tuval (Solo)
+                _GameLauncherCard(
+                  emoji: '🎨',
+                  title: 'Poki Tuval',
+                  badge: 'Tek Kişilik',
+                  subtitle:
+                      'Sessiz, huzurlu ve profesyonel kişisel çizim tuvalin. Zoomlanabilir yüksek çözünürlüklü defter.',
+                  buttonLabel: 'Tuvali Aç',
+                  color: const Color(0xFFF6D186).withOpacity(0.35),
+                  onTap: _openSoloCanvas,
                 ),
               ],
             );
@@ -471,6 +543,92 @@ class _GameLauncherCard extends StatelessWidget {
                 elevation: 0,
               ),
               child: Text(buttonLabel),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveCanvasInviteCard extends StatelessWidget {
+  const _ActiveCanvasInviteCard({
+    required this.invite,
+    required this.onJoin,
+  });
+
+  final CanvasInvite invite;
+  final VoidCallback onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFCE4EC),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF48FB1), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.pink.withOpacity(0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text('🎨', style: TextStyle(fontSize: 24)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'İki Pati Bir Tuval Daveti',
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFFC2185B),
+                      ),
+                    ),
+                    Text(
+                      '${invite.hostNickname} seni birlikte resim çizmeye bekliyor!',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: PokiColors.textOf(context).withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onJoin,
+              icon: const Icon(Icons.brush_rounded, size: 18),
+              label: const Text('Tuvale Katıl 🐾'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE91E63),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
           ),
         ],

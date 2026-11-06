@@ -1,3 +1,4 @@
+import '../canvas/poki_canvas_screen.dart';
 // lib/features/room/poki_room_screen.dart
 import 'dart:async';
 
@@ -195,6 +196,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       GameLobbyService.instance.init(widget.roomId);
       _listen(GameLobbyService.instance.onQuizInvite, _onQuizInvite);
       _listen(GameLobbyService.instance.onPuzzleInvite, _onPuzzleInvite);
+      _listen(GameLobbyService.instance.onCanvasInvite, _onCanvasInvite);
       _listen(_users.watchMe(), (u) => _setState(() => _me = u));
       _listen(_users.watchUser(partnerId), (u) => _setState(() => _partner = u));
       _listen(_rooms.watchRoom(widget.roomId), (r) => _setState(() => _room = r));
@@ -481,6 +483,26 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
               config: invite.config,
               deck: QuizDeck(invite.questions),
               isHost: false,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _onCanvasInvite(CanvasInvite invite) {
+    HapticFeedback.mediumImpact();
+    _showToast(
+      '🐾 ${invite.hostNickname} seni İki Pati Bir Tuval\'e çağırıyor 🎨 Katıl',
+      duration: const Duration(seconds: 15),
+      onTap: () {
+        _hideToast();
+        GameLobbyService.instance.clearCanvasInvite();
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => PokiCanvasScreen(
+              roomId: widget.roomId,
+              isCoop: true,
             ),
           ),
         );

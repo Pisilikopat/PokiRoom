@@ -68,7 +68,7 @@ class UserRepository {
 
   /// Profil fotoğrafını Supabase Storage'a yükler.
   Future<void> uploadAvatar(dynamic bytes) async {
-    final path = 'avatars/$_uid.jpg';
+    final path = '$_uid.jpg';
     await _db.storage.from('avatars').uploadBinary(
           path,
           bytes,
@@ -80,7 +80,7 @@ class UserRepository {
 
   /// Profil fotoğrafı URL'ini döndürür.
   String? getAvatarUrl(String userId, {bool bust = false}) {
-    final path = 'avatars/$userId.jpg';
+    final path = '$userId.jpg';
     try {
       var url = _db.storage.from('avatars').getPublicUrl(path);
       if (bust) url = '$url?t=${DateTime.now().millisecondsSinceEpoch}';

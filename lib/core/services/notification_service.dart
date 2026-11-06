@@ -65,6 +65,7 @@ class NotificationService {
 
   /// Kullanıcının fcm_token değerini Supabase users tablosuna yazar
   Future<void> syncTokenWithSupabase({String? customToken}) async {
+    if (kIsWeb) return; // Web'de FCM token alinmaz, minified TypeError'i onler
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;

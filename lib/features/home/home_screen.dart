@@ -52,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _load() async {
     try {
       final me = await _users.fetchMe();
-      final url = _users.getAvatarUrl(me.id);
+      final url = me.avatarUrl;
       if (mounted) {
         setState(() {
           _me = me;

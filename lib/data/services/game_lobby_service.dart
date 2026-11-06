@@ -27,6 +27,21 @@ class QuizInvite {
       DateTime.now().difference(timestamp) > const Duration(minutes: 5);
 }
 
+class CanvasInvite {
+  const CanvasInvite({
+    required this.hostId,
+    required this.hostNickname,
+    required this.timestamp,
+  });
+
+  final String hostId;
+  final String hostNickname;
+  final DateTime timestamp;
+
+  bool get isExpired =>
+      DateTime.now().difference(timestamp) > const Duration(minutes: 5);
+}
+
 class PuzzleInvite {
   const PuzzleInvite({
     required this.hostId,
@@ -58,6 +73,14 @@ class GameLobbyService extends ChangeNotifier {
   QuizInvite? get activeQuizInvite =>
       (_activeQuizInvite?.isExpired ?? true) ? null : _activeQuizInvite;
 
+  CanvasInvite? _activeCanvasInvite;
+  CanvasInvite? get activeCanvasInvite =>
+      (_activeCanvasInvite?.isExpired ?? true) ? null : _activeCanvasInvite;
+
+  final StreamController<CanvasInvite> _canvasInviteEvents =
+      StreamController<CanvasInvite>.broadcast();
+  Stream<CanvasInvite> get onCanvasInvite => _canvasInviteEvents.stream;
+
   PuzzleInvite? _activePuzzleInvite;
   PuzzleInvite? get activePuzzleInvite =>
       (_activePuzzleInvite?.isExpired ?? true) ? null : _activePuzzleInvite;
@@ -87,6 +110,8 @@ class GameLobbyService extends ChangeNotifier {
         .onBroadcast(event: 'quiz_cancel', callback: (_) => clearQuizInvite())
         .onBroadcast(event: 'puzzle_invite', callback: _handlePuzzleInvite)
         .onBroadcast(event: 'puzzle_cancel', callback: (_) => clearPuzzleInvite())
+        .onBroadcast(event: 'canvas_invite', callback: _handleCanvasInvite)
+        .onBroadcast(event: 'canvas_cancel', callback: (_) => clearCanvasInvite())
         .subscribe();
 
     _channel = channel;
@@ -201,6 +226,7 @@ class GameLobbyService extends ChangeNotifier {
   void clearInvite() {
     clearQuizInvite();
     clearPuzzleInvite();
+    clearCanvasInvite();
   }
 
   void _disposeChannel() {
@@ -215,6 +241,7 @@ class GameLobbyService extends ChangeNotifier {
     _disposeChannel();
     _quizInviteEvents.close();
     _puzzleInviteEvents.close();
+    _canvasInviteEvents.close();
     super.dispose();
   }
 }
