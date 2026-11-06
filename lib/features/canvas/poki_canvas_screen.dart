@@ -392,6 +392,7 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
     final title = widget.isCoop ? 'İki Pati Bir Tuval 🐾' : 'Poki Tuval 🎨';
     final textColor = PokiColors.textOf(context);
     final subtextColor = PokiColors.textOf(context).withOpacity(0.6);
+    final isWide = MediaQuery.of(context).size.width >= 640;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F3EC), // Sıcak pastel çalışma masası
@@ -456,16 +457,17 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
               ),
             ),
 
-            // 2. Üst Bar (Geri, Başlık, Geri Al, İleri Al, Zoom Kontrolleri, Kaydet, Temizle)
+            // 2. Üst Bar (Kompakt, Tek Satır, Ekranı Kapatmayan Zarif Tasarım)
             Positioned(
               top: 8,
               left: 10,
               right: 10,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                height: 46,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
                   color: PokiColors.surfaceOf(context).withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(23),
                   border: Border.all(
                     color: PokiColors.textOf(context).withOpacity(0.12),
                     width: 1.5,
@@ -473,7 +475,7 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.06),
-                      blurRadius: 12,
+                      blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
                   ],
@@ -481,29 +483,37 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
                       onPressed: () => Navigator.of(context).pop(),
                       tooltip: 'Geri Dön',
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     ),
-                    Expanded(
+                    const SizedBox(width: 4),
+                    Flexible(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             title,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
                               color: textColor,
                             ),
                           ),
                           if (widget.isCoop)
                             Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
-                                  width: 7,
-                                  height: 7,
+                                  width: 6,
+                                  height: 6,
                                   decoration: const BoxDecoration(
                                     color: Color(0xFF67C29C),
                                     shape: BoxShape.circle,
@@ -512,8 +522,10 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                                 const SizedBox(width: 4),
                                 Text(
                                   'Canlı Ortak Çizim',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 9,
                                     color: subtextColor,
                                   ),
                                 ),
@@ -522,60 +534,132 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 4),
                     // Geri Al
                     IconButton(
-                      icon: const Icon(Icons.undo_rounded, size: 20),
+                      icon: const Icon(Icons.undo_rounded, size: 19),
                       tooltip: 'Geri Al',
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       color: _controller.canUndo ? textColor : Colors.grey.shade400,
                       onPressed: _controller.canUndo ? _onUndo : null,
                     ),
                     // İleri Al
                     IconButton(
-                      icon: const Icon(Icons.redo_rounded, size: 20),
+                      icon: const Icon(Icons.redo_rounded, size: 19),
                       tooltip: 'İleri Al',
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       color: _controller.canRedo ? textColor : Colors.grey.shade400,
                       onPressed: _controller.canRedo ? _onRedo : null,
                     ),
-                    // Uzaklaş (-)
-                    IconButton(
-                      icon: const Icon(Icons.remove_circle_outline_rounded, size: 20),
-                      tooltip: 'Uzaklaş',
-                      onPressed: () => _zoomStep(0.85),
-                    ),
-                    // Yakınlaş (+)
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-                      tooltip: 'Yakınlaş',
-                      onPressed: () => _zoomStep(1.18),
-                    ),
+                    if (isWide) ...[
+                      // Uzaklaş (-)
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline_rounded, size: 19),
+                        tooltip: 'Uzaklaş',
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: () => _zoomStep(0.85),
+                      ),
+                      // Yakınlaş (+)
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline_rounded, size: 19),
+                        tooltip: 'Yakınlaş',
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: () => _zoomStep(1.18),
+                      ),
+                    ],
                     // Ekrana Sığdır
                     IconButton(
-                      icon: const Icon(Icons.fit_screen_rounded, size: 20),
+                      icon: const Icon(Icons.fit_screen_rounded, size: 19),
                       tooltip: 'Ekrana Sığdır',
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: _fitCanvasToScreen,
                     ),
                     // Tuvali Kaydet (İndir)
                     IconButton(
                       icon: _isSaving
                           ? const SizedBox(
-                              width: 16,
-                              height: 16,
+                              width: 14,
+                              height: 14,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.download_rounded, size: 20),
+                          : const Icon(Icons.download_rounded, size: 19),
                       tooltip: 'Resim Olarak Kaydet',
+                      padding: const EdgeInsets.all(6),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       color: PokiColors.primaryButton,
                       onPressed: _controller.strokes.isNotEmpty && !_isSaving
                           ? _saveCanvasImage
                           : null,
                     ),
-                    // Temizle
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                      tooltip: 'Tuvali Temizle',
-                      color: const Color(0xFFE88A9A),
-                      onPressed: _controller.strokes.isNotEmpty ? _onClear : null,
-                    ),
+                    if (isWide)
+                      // Temizle (Geniş ekranda doğrudan buton)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded, size: 19),
+                        tooltip: 'Tuvali Temizle',
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        color: const Color(0xFFE88A9A),
+                        onPressed: _controller.strokes.isNotEmpty ? _onClear : null,
+                      )
+                    else
+                      // Mobilde Daha Fazla Menüsü (...)
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert_rounded, size: 19),
+                        tooltip: 'Daha Fazla',
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        color: PokiColors.surfaceOf(context),
+                        onSelected: (val) {
+                          if (val == 'zoom_in') _zoomStep(1.18);
+                          if (val == 'zoom_out') _zoomStep(0.85);
+                          if (val == 'clear') _onClear();
+                        },
+                        itemBuilder: (ctx) => [
+                          const PopupMenuItem(
+                            value: 'zoom_in',
+                            child: Row(
+                              children: [
+                                Icon(Icons.add_circle_outline_rounded, size: 18),
+                                SizedBox(width: 8),
+                                Text('Yakınlaş (+)'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'zoom_out',
+                            child: Row(
+                              children: [
+                                Icon(Icons.remove_circle_outline_rounded, size: 18),
+                                SizedBox(width: 8),
+                                Text('Uzaklaş (-)'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuDivider(),
+                          PopupMenuItem(
+                            value: 'clear',
+                            enabled: _controller.strokes.isNotEmpty,
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline_rounded, size: 18, color: const Color(0xFFE88A9A)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Tuvali Temizle',
+                                  style: TextStyle(
+                                    color: _controller.strokes.isNotEmpty ? const Color(0xFFE88A9A) : Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
