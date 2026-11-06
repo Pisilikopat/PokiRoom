@@ -8,6 +8,21 @@ import '../../features/puzzle/models/puzzle_config.dart';
 import '../../features/quiz/models/quiz_config.dart';
 import '../../features/quiz/models/quiz_question.dart';
 
+class CanvasInvite {
+  const CanvasInvite({
+    required this.hostId,
+    required this.hostNickname,
+    required this.timestamp,
+  });
+
+  final String hostId;
+  final String hostNickname;
+  final DateTime timestamp;
+
+  bool get isExpired =>
+      DateTime.now().difference(timestamp) > const Duration(minutes: 5);
+}
+
 class QuizInvite {
   const QuizInvite({
     required this.hostId,
@@ -21,21 +36,6 @@ class QuizInvite {
   final String hostNickname;
   final QuizConfig config;
   final List<QuizQuestion> questions;
-  final DateTime timestamp;
-
-  bool get isExpired =>
-      DateTime.now().difference(timestamp) > const Duration(minutes: 5);
-}
-
-class CanvasInvite {
-  const CanvasInvite({
-    required this.hostId,
-    required this.hostNickname,
-    required this.timestamp,
-  });
-
-  final String hostId;
-  final String hostNickname;
   final DateTime timestamp;
 
   bool get isExpired =>
@@ -69,10 +69,6 @@ class GameLobbyService extends ChangeNotifier {
   String? _roomId;
   String? _myId;
 
-  QuizInvite? _activeQuizInvite;
-  QuizInvite? get activeQuizInvite =>
-      (_activeQuizInvite?.isExpired ?? true) ? null : _activeQuizInvite;
-
   CanvasInvite? _activeCanvasInvite;
   CanvasInvite? get activeCanvasInvite =>
       (_activeCanvasInvite?.isExpired ?? true) ? null : _activeCanvasInvite;
@@ -80,6 +76,10 @@ class GameLobbyService extends ChangeNotifier {
   final StreamController<CanvasInvite> _canvasInviteEvents =
       StreamController<CanvasInvite>.broadcast();
   Stream<CanvasInvite> get onCanvasInvite => _canvasInviteEvents.stream;
+
+  QuizInvite? _activeQuizInvite;
+  QuizInvite? get activeQuizInvite =>
+      (_activeQuizInvite?.isExpired ?? true) ? null : _activeQuizInvite;
 
   PuzzleInvite? _activePuzzleInvite;
   PuzzleInvite? get activePuzzleInvite =>
@@ -115,6 +115,28 @@ class GameLobbyService extends ChangeNotifier {
         .subscribe();
 
     _channel = channel;
+  }
+
+  void _handleCanvasInvite(Map<String, dynamic> payload) {
+    final nested = payload['payload'];
+    final data = nested is Map ? nested.cast<String, dynamic>() : payload;
+
+    final from = data['from'] as String?;
+    if (from == _myId) return;
+
+    try {
+      final invite = CanvasInvite(
+        hostId: from ?? '',
+        hostNickname: (data['nickname'] as String?) ?? 'Partnerin',
+        timestamp:
+            DateTime.tryParse(data['timestamp'] as String? ?? '') ??
+                DateTime.now(),
+      );
+
+      _activeCanvasInvite = invite;
+      _canvasInviteEvents.add(invite);
+      notifyListeners();
+    } catch (_) {}
   }
 
   void _handleQuizInvite(Map<String, dynamic> payload) {
@@ -175,6 +197,20 @@ class GameLobbyService extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> sendCanvasInvite(String myNickname) async {
+    final myId = _myId ?? _db.auth.currentUser?.id;
+    final payload = {
+      'from': myId,
+      'nickname': myNickname,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    await _channel?.sendBroadcastMessage(
+      event: 'canvas_invite',
+      payload: payload,
+    );
+  }
+
   Future<void> sendQuizInvite({
     required QuizConfig config,
     required List<QuizQuestion> questions,
@@ -213,6 +249,11 @@ class GameLobbyService extends ChangeNotifier {
     );
   }
 
+  void clearCanvasInvite() {
+    _activeCanvasInvite = null;
+    notifyListeners();
+  }
+
   void clearQuizInvite() {
     _activeQuizInvite = null;
     notifyListeners();
@@ -224,9 +265,9 @@ class GameLobbyService extends ChangeNotifier {
   }
 
   void clearInvite() {
+    clearCanvasInvite();
     clearQuizInvite();
     clearPuzzleInvite();
-    clearCanvasInvite();
   }
 
   void _disposeChannel() {
@@ -239,9 +280,9 @@ class GameLobbyService extends ChangeNotifier {
   @override
   void dispose() {
     _disposeChannel();
+    _canvasInviteEvents.close();
     _quizInviteEvents.close();
     _puzzleInviteEvents.close();
-    _canvasInviteEvents.close();
     super.dispose();
   }
 }

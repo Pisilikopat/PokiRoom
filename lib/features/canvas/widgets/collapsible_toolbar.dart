@@ -52,6 +52,7 @@ class CollapsibleToolbar extends StatelessWidget {
 
   /// Katlanmış, minik floating hap (Mobil ekranı ferah tutar)
   Widget _buildCollapsed(BuildContext context) {
+    final subtextColor = PokiColors.textOf(context).withOpacity(0.6);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -60,10 +61,10 @@ class CollapsibleToolbar extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: PokiColors.cardOf(context).withOpacity(0.96),
+            color: PokiColors.surfaceOf(context).withOpacity(0.96),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: PokiColors.borderOf(context),
+              color: PokiColors.textOf(context).withOpacity(0.12),
               width: 1.5,
             ),
             boxShadow: [
@@ -80,7 +81,7 @@ class CollapsibleToolbar extends StatelessWidget {
               Icon(
                 selectedTool.icon,
                 size: 20,
-                color: selectedTool.isEraser ? PokiColors.textSecondary : selectedColor,
+                color: selectedTool.isEraser ? subtextColor : selectedColor,
               ),
               const SizedBox(width: 8),
               Container(
@@ -93,10 +94,10 @@ class CollapsibleToolbar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(
+              Icon(
                 Icons.tune_rounded,
                 size: 16,
-                color: PokiColors.textSecondary,
+                color: subtextColor,
               ),
             ],
           ),
@@ -107,15 +108,17 @@ class CollapsibleToolbar extends StatelessWidget {
 
   /// Açık, tüm fırça ve renk araçlarını gösteren tatlı panel
   Widget _buildExpanded(BuildContext context) {
+    final subtextColor = PokiColors.textOf(context).withOpacity(0.6);
+
     return Container(
       constraints: const BoxConstraints(maxWidth: 420),
       margin: const EdgeInsets.symmetric(horizontal: 12),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: PokiColors.cardOf(context).withOpacity(0.98),
+        color: PokiColors.surfaceOf(context).withOpacity(0.98),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: PokiColors.borderOf(context),
+          color: PokiColors.textOf(context).withOpacity(0.12),
           width: 1.5,
         ),
         boxShadow: [
@@ -167,7 +170,7 @@ class CollapsibleToolbar extends StatelessWidget {
                                   size: 18,
                                   color: isSelected
                                       ? PokiColors.primaryButton
-                                      : PokiColors.textSecondary,
+                                      : subtextColor,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
@@ -177,7 +180,7 @@ class CollapsibleToolbar extends StatelessWidget {
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                     color: isSelected
                                         ? PokiColors.primaryButton
-                                        : PokiColors.textSecondary,
+                                        : subtextColor,
                                   ),
                                 ),
                               ],
@@ -278,7 +281,7 @@ class CollapsibleToolbar extends StatelessWidget {
               ),
               Text(
                 '${strokeWidth.toInt()} px',
-                style: const TextStyle(fontSize: 11, color: PokiColors.textSecondary),
+                style: TextStyle(fontSize: 11, color: subtextColor),
               ),
             ],
           ),

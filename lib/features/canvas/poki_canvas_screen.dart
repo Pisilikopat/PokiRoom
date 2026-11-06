@@ -172,17 +172,18 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
   }
 
   void _onClear() {
+    final subtextColor = PokiColors.textOf(context).withOpacity(0.6);
     showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: PokiColors.cardOf(context),
+        backgroundColor: PokiColors.surfaceOf(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Tuvali Temizle 🎨', style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text('Tuvaldeki tüm çizimler silinecek. Emin misin?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Vazgeç', style: TextStyle(color: PokiColors.textSecondary)),
+            child: Text('Vazgeç', style: TextStyle(color: subtextColor)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -207,6 +208,8 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
   @override
   Widget build(BuildContext context) {
     final title = widget.isCoop ? 'İki Pati Bir Tuval 🐾' : 'Poki Tuval 🎨';
+    final textColor = PokiColors.textOf(context);
+    final subtextColor = PokiColors.textOf(context).withOpacity(0.6);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F3EC), // Sıcak pastel çalışma masası
@@ -243,10 +246,10 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: PokiColors.cardOf(context).withOpacity(0.94),
+                  color: PokiColors.surfaceOf(context).withOpacity(0.94),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: PokiColors.borderOf(context),
+                    color: PokiColors.textOf(context).withOpacity(0.12),
                     width: 1.5,
                   ),
                   boxShadow: [
@@ -272,10 +275,10 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                         children: [
                           Text(
                             title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: PokiColors.textPrimary,
+                              color: textColor,
                             ),
                           ),
                           if (widget.isCoop)
@@ -290,11 +293,11 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Text(
+                                Text(
                                   'Canlı Ortak Çizim',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: PokiColors.textSecondary,
+                                    color: subtextColor,
                                   ),
                                 ),
                               ],
@@ -306,14 +309,14 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                     IconButton(
                       icon: const Icon(Icons.undo_rounded, size: 22),
                       tooltip: 'Geri Al',
-                      color: _controller.canUndo ? PokiColors.textPrimary : Colors.grey.shade400,
+                      color: _controller.canUndo ? textColor : Colors.grey.shade400,
                       onPressed: _controller.canUndo ? _onUndo : null,
                     ),
                     // İleri Al
                     IconButton(
                       icon: const Icon(Icons.redo_rounded, size: 22),
                       tooltip: 'İleri Al',
-                      color: _controller.canRedo ? PokiColors.textPrimary : Colors.grey.shade400,
+                      color: _controller.canRedo ? textColor : Colors.grey.shade400,
                       onPressed: _controller.canRedo ? _onRedo : null,
                     ),
                     // Zoom Sıfırla

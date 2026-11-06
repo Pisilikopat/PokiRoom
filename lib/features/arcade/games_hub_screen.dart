@@ -1,3 +1,4 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../canvas/poki_canvas_screen.dart';
 // lib/features/arcade/games_hub_screen.dart
 import 'package:flutter/material.dart';
@@ -136,6 +137,7 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
           builder: (context, _) {
             final activeQuiz = GameLobbyService.instance.activeQuizInvite;
             final activePuzzle = GameLobbyService.instance.activePuzzleInvite;
+            final activeCanvas = GameLobbyService.instance.activeCanvasInvite;
             final hasActive = activeQuiz != null || activePuzzle != null || activeCanvas != null;
 
             return ListView(

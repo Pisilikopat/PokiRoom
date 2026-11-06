@@ -12,6 +12,8 @@ enum DrawingTool {
 }
 
 extension DrawingToolExt on DrawingTool {
+  bool get isEraser => this == DrawingTool.eraser;
+
   String get label {
     switch (this) {
       case DrawingTool.pen:
