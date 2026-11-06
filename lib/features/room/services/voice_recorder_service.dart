@@ -36,6 +36,13 @@ class VoiceRecorderState {
       status == RecorderStatus.recording || status == RecorderStatus.locked;
   bool get isLocked => status == RecorderStatus.locked;
 
+  String get formattedDuration {
+    final s = durationMs ~/ 1000;
+    final m = s ~/ 60;
+    final sec = s % 60;
+    return '$m:${sec.toString().padLeft(2, '0')}';
+  }
+
   static const VoiceRecorderState idle = VoiceRecorderState(
     status: RecorderStatus.idle,
     durationMs: 0,
