@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../data/services/game_lobby_service.dart';
 // Poki Tuval & İki Pati Bir Tuval - v1.1.0
 // lib/features/canvas/poki_canvas_screen.dart
