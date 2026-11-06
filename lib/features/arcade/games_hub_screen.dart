@@ -13,6 +13,7 @@ import '../puzzle/puzzle_setup_screen.dart';
 import '../quiz/logic/quiz_deck.dart';
 import '../quiz/quiz_game_screen.dart';
 import '../quiz/quiz_lobby_screen.dart';
+import '../pet/pet_screen.dart';
 
 /// Poki Oyun Odası (Poki Arcade): Aktif oyunları görme ve yeni lobi oluşturma merkezi.
 class GamesHubScreen extends StatefulWidget {
@@ -250,6 +251,26 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // Kart: Ortak Kedi · Mırnav
+                _GameLauncherCard(
+                  emoji: '🐱🐾',
+                  title: 'Ortak Kedi · Mırnav',
+                  badge: 'Canlı Birlikte',
+                  subtitle:
+                      'Arda & Yuna ortak kedi odası. Birlikte besleyin, sevin, başucuna iyi geceler notu bırakıp uyutun!',
+                  buttonLabel: 'Kedi Odasına Git 🐾',
+                  color: const Color(0xFF93C5FD).withOpacity(0.3),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PetScreen(roomId: widget.roomId),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 14),
 
                 // Kart A: Poki Quiz
                 _GameLauncherCard(

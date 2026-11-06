@@ -30,7 +30,10 @@ class RoomHeader extends StatelessWidget {
     this.myHasBandage = false,
     this.onBandageTap,
     this.onMyBandageTap,
+    this.onPetTap,
   });
+
+  final VoidCallback? onPetTap;
 
   final PokiUser? me;
   final PokiUser? partner;
@@ -147,7 +150,7 @@ class RoomHeader extends StatelessWidget {
                         const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
-                  _PokiPetChip(emoji: _petEmoji, streak: streak),
+                  _PokiPetChip(emoji: _petEmoji, streak: streak, onTap: onPetTap),
                                     Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -191,7 +194,9 @@ class RoomHeader extends StatelessWidget {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         onSelected: (value) {
-                          if (value == 'call') {
+                          if (value == 'pet') {
+                            onPetTap?.call();
+                          } else if (value == 'call') {
                             onVoiceCallTap?.call();
                           } else if (value == 'search') {
                             onSearchTap?.call();
@@ -211,6 +216,16 @@ class RoomHeader extends StatelessWidget {
                           final isDark =
                               Theme.of(context).brightness == Brightness.dark;
                           return [
+                            const PopupMenuItem(
+                              value: 'pet',
+                              child: Row(
+                                children: [
+                                  Text('🐾', style: TextStyle(fontSize: 18)),
+                                  SizedBox(width: 10),
+                                  Text('Ortak Kedi · Mırnav'),
+                                ],
+                              ),
+                            ),
                             if (onVoiceCallTap != null)
                               const PopupMenuItem(
                                 value: 'call',
@@ -472,31 +487,36 @@ class _QuickActionPillState extends State<_QuickActionPill>
 }
 
 class _PokiPetChip extends StatelessWidget {
-  const _PokiPetChip({required this.emoji, required this.streak});
+  const _PokiPetChip({required this.emoji, required this.streak, this.onTap});
   final String emoji;
   final int streak;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: PokiColors.backgroundOf(context),
-        borderRadius: PokiRadius.all,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 6),
-          Text(
-            '$streak gün',
-            style: Theme.of(context)
-                .textTheme
-                .labelLarge
-                ?.copyWith(fontWeight: FontWeight.w800),
-          ),
-        ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: PokiRadius.all,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: PokiColors.backgroundOf(context),
+          borderRadius: PokiRadius.all,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 6),
+            Text(
+              '$streak gün',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -19,6 +19,7 @@ import '../../data/repositories/room_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/voice_repository.dart';
 import 'screens/voice_call_screen.dart';
+import '../pet/pet_screen.dart';
 import 'services/call_signaling_service.dart';
 import 'services/voice_recorder_service.dart';
 import '../../data/services/game_lobby_service.dart';
@@ -1129,6 +1130,16 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                     presence?.partnerActivity ?? PokiActivity.offline,
                 streak: _room?.streakCount ?? 1,
                 onClosePocket: _confirmClosePocket,
+                onPetTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PetScreen(
+                        roomId: widget.roomId,
+                        partnerNickname: _partner?.nickname ?? 'Partnerin',
+                      ),
+                    ),
+                  );
+                },
                 onQuickAction: _handleQuickAction,
                 onSearchTap: _toggleSearch,
                 isSearching: _isSearchActive,
