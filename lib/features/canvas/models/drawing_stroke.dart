@@ -8,11 +8,16 @@ enum DrawingTool {
   highlighter, // Yarı saydam fosforlu kalem
   pawStamp, // Pati damgası 🐾
   heartStamp, // Kalp damgası 💖
-  eraser, // Silgi
+  eraser, // Silgi (Klasik alan/piksel silgisi)
+  strokeEraser, // Çizgi Silgisi (Dokunulan çizgiyi tamamen siler)
+  hand, // El / Kaydır (Ekranda gezinme / pan aracı)
 }
 
 extension DrawingToolExt on DrawingTool {
   bool get isEraser => this == DrawingTool.eraser;
+  bool get isStrokeEraser => this == DrawingTool.strokeEraser;
+  bool get isHand => this == DrawingTool.hand;
+  bool get isAnyEraser => isEraser || isStrokeEraser;
 
   String get label {
     switch (this) {
@@ -27,7 +32,11 @@ extension DrawingToolExt on DrawingTool {
       case DrawingTool.heartStamp:
         return 'Kalp';
       case DrawingTool.eraser:
-        return 'Silgi';
+        return 'Alan Silgi';
+      case DrawingTool.strokeEraser:
+        return 'Çizgi Sil';
+      case DrawingTool.hand:
+        return 'Kaydır';
     }
   }
 
@@ -45,6 +54,10 @@ extension DrawingToolExt on DrawingTool {
         return Icons.favorite_rounded;
       case DrawingTool.eraser:
         return Icons.auto_fix_normal_rounded;
+      case DrawingTool.strokeEraser:
+        return Icons.delete_sweep_rounded;
+      case DrawingTool.hand:
+        return Icons.pan_tool_rounded;
     }
   }
 }

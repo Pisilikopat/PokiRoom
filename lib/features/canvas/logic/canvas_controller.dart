@@ -1,4 +1,5 @@
 // lib/features/canvas/logic/canvas_controller.dart
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
@@ -57,8 +58,6 @@ class CanvasController extends ChangeNotifier {
   bool get canRedo => _redoStack.isNotEmpty;
 
   /// Ekran piksel koordinatını (Screen), tuvalin dünya koordinatına (World) çevirir.
-  /// Bu sayede kullanıcı ne kadar zoom yaparsa yapsın fırça kalınlığı ve çizim
-  /// her zaman tam yerinde ve doğru orantıda çizilir.
   Offset toWorld(Offset screenPoint) {
     final matrix = transformController.value;
     final inv = Matrix4.tryInvert(matrix);
@@ -110,9 +109,56 @@ class CanvasController extends ChangeNotifier {
     }
   }
 
+  // --- Çizgi Silgisi (Dokunulan Çizgiyi Tamamen Silme) ---
+
+  DrawingStroke? deleteStrokeAt(Offset worldPoint, {double hitDistance = 24.0}) {
+    for (int i = _strokes.length - 1; i >= 0; i--) {
+      final stroke = _strokes[i];
+      if (_strokeHitsPoint(stroke, worldPoint, hitDistance)) {
+        final deleted = _strokes.removeAt(i);
+        _redoStack.add(deleted);
+        notifyListeners();
+        return deleted;
+      }
+    }
+    return null;
+  }
+
+  bool _strokeHitsPoint(DrawingStroke stroke, Offset point, double hitDistance) {
+    final effectiveDistance = math.max(hitDistance, stroke.strokeWidth * 1.5);
+    final r2 = effectiveDistance * effectiveDistance;
+
+    for (int i = 0; i < stroke.points.length; i++) {
+      final p = stroke.points[i].offset;
+      final dx = p.dx - point.dx;
+      final dy = p.dy - point.dy;
+      if (dx * dx + dy * dy <= r2) return true;
+
+      if (i < stroke.points.length - 1) {
+        final p2 = stroke.points[i + 1].offset;
+        if (_pointToSegmentDistanceSq(point, p, p2) <= r2) return true;
+      }
+    }
+    return false;
+  }
+
+  double _pointToSegmentDistanceSq(Offset p, Offset v, Offset w) {
+    final l2 = (v.dx - w.dx) * (v.dx - w.dx) + (v.dy - w.dy) * (v.dy - w.dy);
+    if (l2 == 0) return (p.dx - v.dx) * (p.dx - v.dx) + (p.dy - v.dy) * (p.dy - v.dy);
+    final t = math.max(0.0, math.min(1.0, ((p.dx - v.dx) * (w.dx - v.dx) + (p.dy - v.dy) * (w.dy - v.dy)) / l2));
+    final projection = Offset(v.dx + t * (w.dx - v.dx), v.dy + t * (w.dy - v.dy));
+    final dx = p.dx - projection.dx;
+    final dy = p.dy - projection.dy;
+    return dx * dx + dy * dy;
+  }
+
+  void deleteStrokeById(String strokeId) {
+    _strokes.removeWhere((s) => s.id == strokeId);
+    notifyListeners();
+  }
+
   DrawingStroke? undo() {
     if (_strokes.isEmpty) return null;
-    // Ortak modda kullanıcının kendi son çizgisini veya solo modda en son çizgiyi geri alır
     final lastIndex = _strokes.lastIndexWhere((s) => !isCoop || s.authorId == myId);
     if (lastIndex == -1) return null;
     final removed = _strokes.removeAt(lastIndex);
@@ -160,7 +206,6 @@ class CanvasController extends ChangeNotifier {
 
   void onPartnerStrokeEnd(DrawingStroke stroke) {
     _partnerActiveStrokes.remove(stroke.authorId);
-    // Eski referans varsa güncelle, yoksa ekle
     final existingIdx = _strokes.indexWhere((s) => s.id == stroke.id);
     if (existingIdx >= 0) {
       _strokes[existingIdx] = stroke;

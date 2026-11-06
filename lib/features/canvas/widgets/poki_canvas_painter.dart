@@ -55,7 +55,7 @@ class PokiCanvasPainter extends CustomPainter {
       ..strokeWidth = 2.0;
     canvas.drawRRect(paperRRect, borderPaint);
 
-    // 2. Izgara Noktaları (Kılavuz Çizgiler - Rahatça çizim yapabilmek için)
+    // 2. Izgara Noktaları (Kılavuz Çizgiler)
     _drawGridDots(canvas, paperRect);
 
     // Kağıt sınırları dışına taşan çizimleri kırp
@@ -64,17 +64,17 @@ class PokiCanvasPainter extends CustomPainter {
 
     // 3. Tamamlanmış Çizgileri Çiz
     for (final stroke in strokes) {
-      _drawStroke(canvas, stroke);
+      drawStrokeDirect(canvas, stroke, paperBg);
     }
 
     // 4. Kullanıcının Kendi Aktif Çizgisini Çiz
     if (currentStroke != null) {
-      _drawStroke(canvas, currentStroke!);
+      drawStrokeDirect(canvas, currentStroke!, paperBg);
     }
 
     // 5. Partnerin Aktif Çizgilerini Çiz (Canlı ortak mod)
     for (final partnerStroke in partnerStrokes.values) {
-      _drawStroke(canvas, partnerStroke);
+      drawStrokeDirect(canvas, partnerStroke, paperBg);
     }
 
     // 6. Partner Canlı İmleci
@@ -86,7 +86,7 @@ class PokiCanvasPainter extends CustomPainter {
     canvas.restore(); // transform
   }
 
-  void _drawGridDots(Canvas canvas, Rect bounds) {
+  static void _drawGridDots(Canvas canvas, Rect bounds) {
     final dotPaint = Paint()..color = dotColor;
     const double step = 40.0;
     for (double x = step; x < bounds.width; x += step) {
@@ -96,7 +96,7 @@ class PokiCanvasPainter extends CustomPainter {
     }
   }
 
-  void _drawStroke(Canvas canvas, DrawingStroke stroke) {
+  static void drawStrokeDirect(Canvas canvas, DrawingStroke stroke, Color paperBg) {
     if (stroke.points.isEmpty) return;
 
     if (stroke.tool == DrawingTool.pawStamp) {
@@ -156,7 +156,7 @@ class PokiCanvasPainter extends CustomPainter {
     canvas.drawPath(path, paint);
   }
 
-  void _drawPawStamps(Canvas canvas, DrawingStroke stroke) {
+  static void _drawPawStamps(Canvas canvas, DrawingStroke stroke) {
     final paint = Paint()
       ..color = stroke.color.withOpacity(stroke.opacity * 0.9)
       ..style = PaintingStyle.fill;
@@ -184,7 +184,7 @@ class PokiCanvasPainter extends CustomPainter {
     }
   }
 
-  void _drawHeartStamps(Canvas canvas, DrawingStroke stroke) {
+  static void _drawHeartStamps(Canvas canvas, DrawingStroke stroke) {
     final paint = Paint()
       ..color = stroke.color.withOpacity(stroke.opacity * 0.9)
       ..style = PaintingStyle.fill;

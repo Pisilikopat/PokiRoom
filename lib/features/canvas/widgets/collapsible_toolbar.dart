@@ -53,6 +53,8 @@ class CollapsibleToolbar extends StatelessWidget {
   /// Katlanmış, minik floating hap (Mobil ekranı ferah tutar)
   Widget _buildCollapsed(BuildContext context) {
     final subtextColor = PokiColors.textOf(context).withOpacity(0.6);
+    final isNonColored = selectedTool.isAnyEraser || selectedTool.isHand;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -81,19 +83,21 @@ class CollapsibleToolbar extends StatelessWidget {
               Icon(
                 selectedTool.icon,
                 size: 20,
-                color: selectedTool.isEraser ? subtextColor : selectedColor,
+                color: isNonColored ? subtextColor : selectedColor,
               ),
               const SizedBox(width: 8),
-              Container(
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: selectedColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
+              if (!isNonColored) ...[
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: selectedColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
+                const SizedBox(width: 6),
+              ],
               Icon(
                 Icons.tune_rounded,
                 size: 16,
@@ -109,9 +113,10 @@ class CollapsibleToolbar extends StatelessWidget {
   /// Açık, tüm fırça ve renk araçlarını gösteren tatlı panel
   Widget _buildExpanded(BuildContext context) {
     final subtextColor = PokiColors.textOf(context).withOpacity(0.6);
+    final showPalette = !selectedTool.isAnyEraser && !selectedTool.isHand;
 
     return Container(
-      constraints: const BoxConstraints(maxWidth: 420),
+      constraints: const BoxConstraints(maxWidth: 440),
       margin: const EdgeInsets.symmetric(horizontal: 12),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -201,90 +206,104 @@ class CollapsibleToolbar extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 10),
+          if (showPalette) ...[
+            const SizedBox(height: 10),
 
-          // 2. Satır: Renk Paleti
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: palette.map((color) {
-                final isSelected = selectedColor == color;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: GestureDetector(
-                    onTap: () => onColorSelected(color),
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected ? Colors.white : Colors.black.withOpacity(0.1),
-                          width: isSelected ? 3 : 1,
+            // 2. Satır: Renk Paleti
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: palette.map((color) {
+                  final isSelected = selectedColor == color;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: GestureDetector(
+                      onTap: () => onColorSelected(color),
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? Colors.white : Colors.black.withOpacity(0.1),
+                            width: isSelected ? 3 : 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: color.withOpacity(0.6),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : null,
                         ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: color.withOpacity(0.6),
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
-                                ),
-                              ]
+                        child: isSelected
+                            ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
                             : null,
                       ),
-                      child: isSelected
-                          ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-                          : null,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+
+          if (!selectedTool.isHand) ...[
+            const SizedBox(height: 10),
+
+            // 3. Satır: Fırça Kalınlığı Slider + Canlı Önizleme
+            Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  child: Container(
+                    width: strokeWidth.clamp(3.0, 22.0),
+                    height: strokeWidth.clamp(3.0, 22.0),
+                    decoration: BoxDecoration(
+                      color: showPalette ? selectedColor : subtextColor,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                );
-              }).toList(),
+                ),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                      activeTrackColor: PokiColors.primaryButton,
+                      thumbColor: PokiColors.primaryButton,
+                    ),
+                    child: Slider(
+                      value: strokeWidth,
+                      min: 1.5,
+                      max: 32.0,
+                      onChanged: onWidthChanged,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${strokeWidth.toInt()} px',
+                  style: TextStyle(fontSize: 11, color: subtextColor),
+                ),
+              ],
             ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // 3. Satır: Fırça Kalınlığı Slider + Canlı Önizleme
-          Row(
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                alignment: Alignment.center,
-                child: Container(
-                  width: strokeWidth.clamp(3.0, 22.0),
-                  height: strokeWidth.clamp(3.0, 22.0),
-                  decoration: BoxDecoration(
-                    color: selectedColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
+          ] else ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                '💡 Ekrana dokunup sürükleyerek tuvali rahatça kaydırabilirsin.',
+                style: TextStyle(fontSize: 12, color: subtextColor),
+                textAlign: TextAlign.center,
               ),
-              Expanded(
-                child: SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 3,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-                    activeTrackColor: PokiColors.primaryButton,
-                    thumbColor: PokiColors.primaryButton,
-                  ),
-                  child: Slider(
-                    value: strokeWidth,
-                    min: 1.5,
-                    max: 32.0,
-                    onChanged: onWidthChanged,
-                  ),
-                ),
-              ),
-              Text(
-                '${strokeWidth.toInt()} px',
-                style: TextStyle(fontSize: 11, color: subtextColor),
-              ),
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );

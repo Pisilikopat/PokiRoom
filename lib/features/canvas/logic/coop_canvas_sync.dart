@@ -83,6 +83,16 @@ class CoopCanvasSync {
           debugPrint('[CanvasSync] stroke_undo error: $e');
         }
       })
+      .onBroadcast(event: 'stroke_delete', callback: (payload) {
+        try {
+          final strokeId = payload['strokeId'] as String?;
+          if (strokeId != null) {
+            controller.deleteStrokeById(strokeId);
+          }
+        } catch (e) {
+          debugPrint('[CanvasSync] stroke_delete error: $e');
+        }
+      })
       .onBroadcast(event: 'canvas_clear', callback: (payload) {
         try {
           controller.onPartnerClear();
@@ -201,6 +211,13 @@ class CoopCanvasSync {
   void sendUndo(String strokeId) {
     _channel?.sendBroadcastMessage(
       event: 'stroke_undo',
+      payload: {'strokeId': strokeId},
+    );
+  }
+
+  void sendDeleteStroke(String strokeId) {
+    _channel?.sendBroadcastMessage(
+      event: 'stroke_delete',
       payload: {'strokeId': strokeId},
     );
   }

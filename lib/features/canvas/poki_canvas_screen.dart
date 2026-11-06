@@ -1,5 +1,9 @@
 // lib/features/canvas/poki_canvas_screen.dart
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/poki_theme.dart';
@@ -7,6 +11,7 @@ import '../../data/services/room_presence.dart';
 import 'logic/canvas_controller.dart';
 import 'logic/coop_canvas_sync.dart';
 import 'models/drawing_stroke.dart';
+import 'services/image_saver.dart';
 import 'widgets/collapsible_toolbar.dart';
 import 'widgets/poki_canvas_painter.dart';
 
@@ -32,6 +37,7 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
   bool _isMultiTouch = false;
   Offset? _lastFocalPoint;
   double _lastScale = 1.0;
+  bool _isSaving = false;
 
   // Çizim kağıdı sanal boyutları (Yüksek çözünürlüklü dijital eskiz defteri)
   static const double paperWidth = 1800.0;
@@ -85,6 +91,17 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
     setState(() {});
   }
 
+  void _zoomStep(double factor) {
+    final size = MediaQuery.of(context).size;
+    final center = Offset(size.width / 2, size.height / 2);
+    final matrix = _controller.transformController.value.clone();
+    matrix.translate(center.dx, center.dy);
+    matrix.scale(factor);
+    matrix.translate(-center.dx, -center.dy);
+    _controller.transformController.value = matrix;
+    setState(() {});
+  }
+
   @override
   void dispose() {
     _sync?.dispose();
@@ -100,23 +117,38 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
       _isMultiTouch = true;
       _lastFocalPoint = details.localFocalPoint;
       _lastScale = 1.0;
-      // İki parmak algılanınca tek parmakla başlamış olabilecek yanlış dokunuşu iptal et
       _controller.cancelCurrentStroke();
-    } else {
-      _isMultiTouch = false;
-      // Çizime başlandığı an fırça paneli açıksa ekranı açmak için otomatik kapat
-      if (_isToolbarExpanded) {
-        setState(() => _isToolbarExpanded = false);
-      }
+      return;
+    }
+
+    _isMultiTouch = false;
+    _lastFocalPoint = details.localFocalPoint;
+
+    // 1. Kaydır (El) Aracı: Sadece gezinme
+    if (_controller.selectedTool == DrawingTool.hand) {
+      return;
+    }
+
+    // 2. Çizgi Silgisi Modu: Dokunulan çizgiyi tamamen sil
+    if (_controller.selectedTool == DrawingTool.strokeEraser) {
       final worldPoint = _controller.toWorld(details.localFocalPoint);
-      _controller.startStroke(worldPoint);
-      if (widget.isCoop && _controller.currentStroke != null) {
-        _sync?.sendStrokeStart(_controller.currentStroke!);
-      }
+      _deleteStrokeAtWorld(worldPoint);
+      return;
+    }
+
+    // 3. Normal Çizim Araçları
+    if (_isToolbarExpanded) {
+      setState(() => _isToolbarExpanded = false);
+    }
+    final worldPoint = _controller.toWorld(details.localFocalPoint);
+    _controller.startStroke(worldPoint);
+    if (widget.isCoop && _controller.currentStroke != null) {
+      _sync?.sendStrokeStart(_controller.currentStroke!);
     }
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
+    // 2 parmakla pinch zoom veya pan
     if (details.pointerCount >= 2 || _isMultiTouch) {
       _isMultiTouch = true;
       if (_lastFocalPoint != null) {
@@ -125,7 +157,6 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
         _lastScale = details.scale;
         _lastFocalPoint = details.localFocalPoint;
 
-        // Zoom & Pan Dönüşümü
         final matrix = _controller.transformController.value.clone();
         final focal = details.localFocalPoint;
 
@@ -137,14 +168,37 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
         _controller.transformController.value = matrix;
         setState(() {});
       }
-    } else {
-      final worldPoint = _controller.toWorld(details.localFocalPoint);
-      _controller.appendPoint(worldPoint);
+      return;
+    }
 
-      if (widget.isCoop) {
-        _sync?.throttlePoint(_controller.currentStroke?.id, worldPoint);
-        _sync?.throttleCursor(worldPoint);
+    // 1. Kaydır (El) Aracı: Tek parmak / mouse sürükleme ile sayfayı taşı
+    if (_controller.selectedTool == DrawingTool.hand) {
+      if (_lastFocalPoint != null) {
+        final delta = details.localFocalPoint - _lastFocalPoint!;
+        _lastFocalPoint = details.localFocalPoint;
+
+        final matrix = _controller.transformController.value.clone();
+        matrix.translate(delta.dx, delta.dy);
+        _controller.transformController.value = matrix;
+        setState(() {});
       }
+      return;
+    }
+
+    // 2. Çizgi Silgisi: Sürüklenen yoldaki tüm çizgileri sil
+    if (_controller.selectedTool == DrawingTool.strokeEraser) {
+      final worldPoint = _controller.toWorld(details.localFocalPoint);
+      _deleteStrokeAtWorld(worldPoint);
+      return;
+    }
+
+    // 3. Normal Çizim
+    final worldPoint = _controller.toWorld(details.localFocalPoint);
+    _controller.appendPoint(worldPoint);
+
+    if (widget.isCoop) {
+      _sync?.throttlePoint(_controller.currentStroke?.id, worldPoint);
+      _sync?.throttleCursor(worldPoint);
     }
   }
 
@@ -152,10 +206,24 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
     if (_isMultiTouch) {
       _isMultiTouch = false;
       _lastFocalPoint = null;
+    } else if (_controller.selectedTool == DrawingTool.hand) {
+      _lastFocalPoint = null;
+    } else if (_controller.selectedTool == DrawingTool.strokeEraser) {
+      // Çizgi silgisi bitti
     } else {
       final finished = _controller.endStroke();
       if (finished != null && widget.isCoop) {
         _sync?.sendStrokeEnd(finished);
+      }
+    }
+  }
+
+  void _deleteStrokeAtWorld(Offset worldPoint) {
+    final deleted = _controller.deleteStrokeAt(worldPoint);
+    if (deleted != null) {
+      HapticFeedback.lightImpact();
+      if (widget.isCoop) {
+        _sync?.sendDeleteStroke(deleted.id);
       }
     }
   }
@@ -205,6 +273,64 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
     });
   }
 
+  // --- Tuvali Yüksek Çözünürlüklü Resim Olarak Kaydetme ---
+
+  Future<void> _saveCanvasImage() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+
+    try {
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+
+      final paperRect = Rect.fromLTWH(0, 0, paperWidth, paperHeight);
+      final paperRRect = RRect.fromRectAndRadius(paperRect, const Radius.circular(16));
+
+      // Kağıt tabanı
+      canvas.drawRRect(paperRRect, Paint()..color = const Color(0xFFFFFDF8));
+
+      // Kağıt sınırları içine çizimleri kırp
+      canvas.save();
+      canvas.clipRRect(paperRRect);
+
+      // Tüm çizgileri tam 1800x2400 piksel kalitesinde çiz
+      for (final stroke in _controller.strokes) {
+        PokiCanvasPainter.drawStrokeDirect(canvas, stroke, const Color(0xFFFFFDF8));
+      }
+
+      canvas.restore();
+
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(paperWidth.toInt(), paperHeight.toInt());
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      picture.dispose();
+
+      if (byteData != null) {
+        final bytes = byteData.buffer.asUint8List();
+        final fileName = 'PokiTuval_${DateTime.now().millisecondsSinceEpoch}.png';
+        await CanvasImageSaver.save(bytes, fileName);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tuval resmi başarıyla kaydedildi! 🎨🐾'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Kaydetme hatası: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = widget.isCoop ? 'İki Pati Bir Tuval 🐾' : 'Poki Tuval 🎨';
@@ -216,37 +342,63 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // 1. İnteraktif Çizim ve Zoom Alanı
+            // 1. Bilgisayar Mouse Scroll + Dokunmatik İnteraktif Çizim Alanı
             Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onScaleStart: _onScaleStart,
-                onScaleUpdate: _onScaleUpdate,
-                onScaleEnd: _onScaleEnd,
-                child: CustomPaint(
-                  painter: PokiCanvasPainter(
-                    transformMatrix: _controller.transformController.value,
-                    strokes: _controller.strokes,
-                    currentStroke: _controller.currentStroke,
-                    partnerStrokes: _controller.partnerActiveStrokes,
-                    partnerCursor: _controller.partnerCursor,
-                    paperWidth: paperWidth,
-                    paperHeight: paperHeight,
+              child: Listener(
+                onPointerSignal: (pointerSignal) {
+                  // Bilgisayarda mouse tekerleğiyle yakınlaşma / uzaklaşma
+                  if (pointerSignal is PointerScrollEvent) {
+                    final delta = pointerSignal.scrollDelta.dy;
+                    if (delta == 0) return;
+
+                    // Tekerlek yukarı -> Yakınlaş, tekerlek aşağı -> Uzaklaş
+                    final factor = delta < 0 ? 1.12 : 0.89;
+                    final matrix = _controller.transformController.value.clone();
+                    final focal = pointerSignal.localPosition;
+
+                    matrix.translate(focal.dx, focal.dy);
+                    matrix.scale(factor);
+                    matrix.translate(-focal.dx, -focal.dy);
+
+                    _controller.transformController.value = matrix;
+                    setState(() {});
+                  }
+                },
+                child: MouseRegion(
+                  cursor: _controller.selectedTool == DrawingTool.hand
+                      ? SystemMouseCursors.grab
+                      : SystemMouseCursors.precise,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onScaleStart: _onScaleStart,
+                    onScaleUpdate: _onScaleUpdate,
+                    onScaleEnd: _onScaleEnd,
+                    child: CustomPaint(
+                      painter: PokiCanvasPainter(
+                        transformMatrix: _controller.transformController.value,
+                        strokes: _controller.strokes,
+                        currentStroke: _controller.currentStroke,
+                        partnerStrokes: _controller.partnerActiveStrokes,
+                        partnerCursor: _controller.partnerCursor,
+                        paperWidth: paperWidth,
+                        paperHeight: paperHeight,
+                      ),
+                      size: Size.infinite,
+                    ),
                   ),
-                  size: Size.infinite,
                 ),
               ),
             ),
 
-            // 2. Üst Bar (Başlık, Geri Al, İleri Al, Zoom Sıfırla, Temizle)
+            // 2. Üst Bar (Geri, Başlık, Geri Al, İleri Al, Zoom Kontrolleri, Kaydet, Temizle)
             Positioned(
               top: 8,
-              left: 12,
-              right: 12,
+              left: 10,
+              right: 10,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: PokiColors.surfaceOf(context).withOpacity(0.94),
+                  color: PokiColors.surfaceOf(context).withOpacity(0.95),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: PokiColors.textOf(context).withOpacity(0.12),
@@ -263,11 +415,10 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                       onPressed: () => Navigator.of(context).pop(),
                       tooltip: 'Geri Dön',
                     ),
-                    const SizedBox(width: 4),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,7 +427,7 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                           Text(
                             title,
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: textColor,
                             ),
@@ -285,8 +436,8 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                             Row(
                               children: [
                                 Container(
-                                  width: 8,
-                                  height: 8,
+                                  width: 7,
+                                  height: 7,
                                   decoration: const BoxDecoration(
                                     color: Color(0xFF67C29C),
                                     shape: BoxShape.circle,
@@ -296,7 +447,7 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                                 Text(
                                   'Canlı Ortak Çizim',
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     color: subtextColor,
                                   ),
                                 ),
@@ -307,27 +458,54 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                     ),
                     // Geri Al
                     IconButton(
-                      icon: const Icon(Icons.undo_rounded, size: 22),
+                      icon: const Icon(Icons.undo_rounded, size: 20),
                       tooltip: 'Geri Al',
                       color: _controller.canUndo ? textColor : Colors.grey.shade400,
                       onPressed: _controller.canUndo ? _onUndo : null,
                     ),
                     // İleri Al
                     IconButton(
-                      icon: const Icon(Icons.redo_rounded, size: 22),
+                      icon: const Icon(Icons.redo_rounded, size: 20),
                       tooltip: 'İleri Al',
                       color: _controller.canRedo ? textColor : Colors.grey.shade400,
                       onPressed: _controller.canRedo ? _onRedo : null,
                     ),
-                    // Zoom Sıfırla
+                    // Uzaklaş (-)
                     IconButton(
-                      icon: const Icon(Icons.fit_screen_rounded, size: 22),
+                      icon: const Icon(Icons.remove_circle_outline_rounded, size: 20),
+                      tooltip: 'Uzaklaş',
+                      onPressed: () => _zoomStep(0.85),
+                    ),
+                    // Yakınlaş (+)
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                      tooltip: 'Yakınlaş',
+                      onPressed: () => _zoomStep(1.18),
+                    ),
+                    // Ekrana Sığdır
+                    IconButton(
+                      icon: const Icon(Icons.fit_screen_rounded, size: 20),
                       tooltip: 'Ekrana Sığdır',
                       onPressed: _fitCanvasToScreen,
                     ),
+                    // Tuvali Kaydet (İndir)
+                    IconButton(
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.download_rounded, size: 20),
+                      tooltip: 'Resim Olarak Kaydet',
+                      color: PokiColors.primaryButton,
+                      onPressed: _controller.strokes.isNotEmpty && !_isSaving
+                          ? _saveCanvasImage
+                          : null,
+                    ),
                     // Temizle
                     IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, size: 22),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
                       tooltip: 'Tuvali Temizle',
                       color: const Color(0xFFE88A9A),
                       onPressed: _controller.strokes.isNotEmpty ? _onClear : null,
