@@ -36,6 +36,7 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
 
   bool _isToolbarExpanded = false;
   bool _isMultiTouch = false;
+  bool _isPinching = false;
   Offset? _lastFocalPoint;
   double _lastScale = 1.0;
   bool _isSaving = false;
@@ -94,11 +95,25 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
 
   void _zoomStep(double factor) {
     final size = MediaQuery.of(context).size;
-    final center = Offset(size.width / 2, size.height / 2);
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
     final matrix = _controller.transformController.value.clone();
-    matrix.translate(center.dx, center.dy);
-    matrix.scale(factor);
-    matrix.translate(-center.dx, -center.dy);
+    final currentScale = matrix.storage[0];
+    final targetScale = (currentScale * factor).clamp(0.25, 5.0);
+    final effectiveFactor = targetScale / currentScale;
+
+    final oldTx = matrix.storage[12];
+    final oldTy = matrix.storage[13];
+
+    final newTx = cx * (1.0 - effectiveFactor) + effectiveFactor * oldTx;
+    final newTy = cy * (1.0 - effectiveFactor) + effectiveFactor * oldTy;
+
+    matrix.storage[0] = targetScale;
+    matrix.storage[5] = targetScale;
+    matrix.storage[12] = newTx;
+    matrix.storage[13] = newTy;
+
     _controller.transformController.value = matrix;
     setState(() {});
   }
@@ -116,6 +131,7 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
   void _onScaleStart(ScaleStartDetails details) {
     if (details.pointerCount >= 2) {
       _isMultiTouch = true;
+      _isPinching = false;
       _lastFocalPoint = details.localFocalPoint;
       _lastScale = 1.0;
       _controller.cancelCurrentStroke();
@@ -123,7 +139,9 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
     }
 
     _isMultiTouch = false;
+    _isPinching = false;
     _lastFocalPoint = details.localFocalPoint;
+    _lastScale = 1.0;
 
     // 1. Kaydır (El) Aracı: Sadece gezinme
     if (_controller.selectedTool == DrawingTool.hand) {
@@ -149,22 +167,54 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
-    // 2 parmakla pinch zoom veya pan
+    // 2 parmakla pinch zoom veya pan (veya çoklu dokunma devam ediyorsa)
     if (details.pointerCount >= 2 || _isMultiTouch) {
       _isMultiTouch = true;
+      // İlk parmak önce değip çizgi başlatmışsa derhal iptal et
+      _controller.cancelCurrentStroke();
+
       if (_lastFocalPoint != null) {
         final delta = details.localFocalPoint - _lastFocalPoint!;
-        final scaleFactor = details.scale / _lastScale;
-        _lastScale = details.scale;
         _lastFocalPoint = details.localFocalPoint;
 
-        final matrix = _controller.transformController.value.clone();
-        final focal = details.localFocalPoint;
+        final rawRatio = details.scale / _lastScale;
+        _lastScale = details.scale;
 
-        matrix.translate(focal.dx, focal.dy);
-        matrix.scale(scaleFactor);
-        matrix.translate(-focal.dx, -focal.dy);
-        matrix.translate(delta.dx, delta.dy);
+        // Deadband: Ekranda gezinirken parmak mesafesi doğal olarak titrer.
+        // Başlangıç mesafesine göre %6'dan az değişim varsa tamamen DÜZ KAYDIR (Pan).
+        // Böylece hareket ettirirken ileri-geri zoomlama kesinlikle engellenir!
+        if (!_isPinching) {
+          if ((details.scale - 1.0).abs() > 0.06) {
+            _isPinching = true;
+          }
+        }
+
+        double scaleFactor = 1.0;
+        if (_isPinching && (rawRatio - 1.0).abs() >= 0.004) {
+          // Mikro titreşimleri filtrele ve yumuşat
+          scaleFactor = 1.0 + (rawRatio - 1.0) * 0.85;
+        }
+
+        final matrix = _controller.transformController.value.clone();
+        final currentScale = matrix.storage[0];
+
+        // 0.25x - 5.0x zoom aralığı
+        final targetScale = (currentScale * scaleFactor).clamp(0.25, 5.0);
+        final effectiveFactor = targetScale / currentScale;
+
+        final fx = details.localFocalPoint.dx;
+        final fy = details.localFocalPoint.dy;
+        final oldTx = matrix.storage[12];
+        final oldTy = matrix.storage[13];
+
+        // Ekran koordinatında doğrudan 1:1 kaydırma + odak noktasında kusursuz zoom
+        final newTx = fx * (1.0 - effectiveFactor) + effectiveFactor * oldTx + delta.dx;
+        final newTy = fy * (1.0 - effectiveFactor) + effectiveFactor * oldTy + delta.dy;
+
+        matrix.storage[0] = targetScale;
+        matrix.storage[5] = targetScale;
+        matrix.storage[12] = newTx;
+        matrix.storage[13] = newTy;
 
         _controller.transformController.value = matrix;
         setState(() {});
@@ -179,7 +229,10 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
         _lastFocalPoint = details.localFocalPoint;
 
         final matrix = _controller.transformController.value.clone();
-        matrix.translate(delta.dx, delta.dy);
+        // Doğrudan 1:1 ekran koordinatında dümdüz kaydırma
+        matrix.storage[12] += delta.dx;
+        matrix.storage[13] += delta.dy;
+
         _controller.transformController.value = matrix;
         setState(() {});
       }
@@ -206,7 +259,9 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
   void _onScaleEnd(ScaleEndDetails details) {
     if (_isMultiTouch) {
       _isMultiTouch = false;
+      _isPinching = false;
       _lastFocalPoint = null;
+      _lastScale = 1.0;
     } else if (_controller.selectedTool == DrawingTool.hand) {
       _lastFocalPoint = null;
     } else if (_controller.selectedTool == DrawingTool.strokeEraser) {
@@ -352,14 +407,24 @@ class _PokiCanvasScreenState extends State<PokiCanvasScreen> {
                     final delta = pointerSignal.scrollDelta.dy;
                     if (delta == 0) return;
 
-                    // Tekerlek yukarı -> Yakınlaş, tekerlek aşağı -> Uzaklaş
                     final factor = delta < 0 ? 1.12 : 0.89;
                     final matrix = _controller.transformController.value.clone();
-                    final focal = pointerSignal.localPosition;
+                    final currentScale = matrix.storage[0];
+                    final targetScale = (currentScale * factor).clamp(0.25, 5.0);
+                    final effectiveFactor = targetScale / currentScale;
 
-                    matrix.translate(focal.dx, focal.dy);
-                    matrix.scale(factor);
-                    matrix.translate(-focal.dx, -focal.dy);
+                    final fx = pointerSignal.localPosition.dx;
+                    final fy = pointerSignal.localPosition.dy;
+                    final oldTx = matrix.storage[12];
+                    final oldTy = matrix.storage[13];
+
+                    final newTx = fx * (1.0 - effectiveFactor) + effectiveFactor * oldTx;
+                    final newTy = fy * (1.0 - effectiveFactor) + effectiveFactor * oldTy;
+
+                    matrix.storage[0] = targetScale;
+                    matrix.storage[5] = targetScale;
+                    matrix.storage[12] = newTx;
+                    matrix.storage[13] = newTy;
 
                     _controller.transformController.value = matrix;
                     setState(() {});
