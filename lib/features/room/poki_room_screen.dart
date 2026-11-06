@@ -789,10 +789,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
     if (m == null) return null;
     final senderName =
         m.senderId == _myId ? 'Sen' : (_partner?.nickname ?? 'Partnerin');
-    String snippet = m.cleanContent;
-    if (m.type == 'sticker') snippet = '🐾 Çıkartma';
-    if (m.type == 'foggy') snippet = '🌫️ Buğulu mesaj';
-    if (snippet.length > 50) snippet = '${snippet.substring(0, 47)}...';
+    final snippet = m.displaySnippet;
     return PokiReplyInfo(
       messageId: m.id,
       senderNickname: senderName,

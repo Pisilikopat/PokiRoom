@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:record/record.dart';
 
 class VoiceRecordResult {
@@ -29,33 +30,26 @@ class VoiceRecorderState {
 
   final RecorderStatus status;
   final int durationMs;
-  final double amplitude; // 0.0 - 1.0
+  final double amplitude;
 
   bool get isRecording =>
       status == RecorderStatus.recording || status == RecorderStatus.locked;
   bool get isLocked => status == RecorderStatus.locked;
 
-  String get formattedDuration {
-    final s = durationMs ~/ 1000;
-    final m = s ~/ 60;
-    final sec = s % 60;
-    return '$m:${sec.toString().padLeft(2, '0')}';
-  }
-
-  static const idle = VoiceRecorderState(
+  static const VoiceRecorderState idle = VoiceRecorderState(
     status: RecorderStatus.idle,
     durationMs: 0,
     amplitude: 0.0,
   );
 }
 
-/// Ses kaydı alma, mikrofon izin kontrolü, ses dalgası örnekleme ve bayt toplama servisi.
 class VoiceRecorderService {
-  VoiceRecorderService() : _recorder = AudioRecorder();
+  VoiceRecorderService({AudioRecorder? recorder})
+      : _recorder = recorder ?? AudioRecorder();
 
   final AudioRecorder _recorder;
   final ValueNotifier<VoiceRecorderState> state =
-      ValueNotifier(VoiceRecorderState.idle);
+      ValueNotifier<VoiceRecorderState>(VoiceRecorderState.idle);
 
   Timer? _timer;
   final BytesBuilder _bytesBuilder = BytesBuilder(copy: false);
@@ -66,7 +60,8 @@ class VoiceRecorderService {
   Future<bool> hasPermission() async {
     try {
       return await _recorder.hasPermission();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[VoiceRecorder] hasPermission error: $e');
       return false;
     }
   }
@@ -81,17 +76,23 @@ class VoiceRecorderService {
     _rawAmplitudes.clear();
     _startTime = DateTime.now();
 
-    const config = RecordConfig(
-      encoder: AudioEncoder.aacLc,
+    final config = RecordConfig(
+      encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc,
       sampleRate: 44100,
       bitRate: 64000,
     );
 
     try {
-      final stream = await _recorder.startStream(config);
-      _streamSub = stream.listen((chunk) {
-        _bytesBuilder.add(chunk);
-      });
+      if (kIsWeb) {
+        // Web uses MediaRecorder writing to in-memory blob URL
+        await _recorder.start(config, path: '');
+      } else {
+        // Native mobile streams bytes directly
+        final stream = await _recorder.startStream(config);
+        _streamSub = stream.listen((chunk) {
+          _bytesBuilder.add(chunk);
+        });
+      }
 
       state.value = const VoiceRecorderState(
         status: RecorderStatus.recording,
@@ -107,7 +108,6 @@ class VoiceRecorderService {
 
         try {
           final amp = await _recorder.getAmplitude();
-          // amp.current is usually between -60 dB (quiet) and 0 dB (loud)
           final currentDb = amp.current;
           if (currentDb > -60) {
             ampNormalized = ((currentDb + 60) / 60).clamp(0.05, 1.0);
@@ -125,6 +125,7 @@ class VoiceRecorderService {
 
       return true;
     } catch (e) {
+      debugPrint('[VoiceRecorder] start error: $e');
       await _cleanup();
       state.value = VoiceRecorderState.idle;
       return false;
@@ -144,26 +145,47 @@ class VoiceRecorderService {
   Future<VoiceRecordResult?> stopRecording() async {
     if (!state.value.isRecording) return null;
 
-    final duration = DateTime.now().difference(_startTime ?? DateTime.now()).inMilliseconds;
+    final duration =
+        DateTime.now().difference(_startTime ?? DateTime.now()).inMilliseconds;
 
+    String? recordPath;
     try {
-      await _recorder.stop();
-    } catch (_) {}
+      recordPath = await _recorder.stop();
+    } catch (e) {
+      debugPrint('[VoiceRecorder] stop error: $e');
+    }
 
     await _streamSub?.cancel();
     _streamSub = null;
     _timer?.cancel();
     _timer = null;
 
-    final bytes = _bytesBuilder.toBytes();
-    final waveform = _generateWaveform(_rawAmplitudes, targetBars: 24);
-
     state.value = VoiceRecorderState.idle;
 
-    if (duration < 600 || bytes.isEmpty) {
+    if (duration < 600) {
       // Çok kısa (< 0.6 sn) kayıtlar iptal edilir
       return null;
     }
+
+    Uint8List bytes;
+    if (kIsWeb) {
+      if (recordPath == null || recordPath.isEmpty) return null;
+      try {
+        final res = await http.get(Uri.parse(recordPath));
+        bytes = res.bodyBytes;
+      } catch (e) {
+        debugPrint('[VoiceRecorder] web fetch blob error: $e');
+        return null;
+      }
+    } else {
+      bytes = _bytesBuilder.toBytes();
+    }
+
+    if (bytes.isEmpty) {
+      return null;
+    }
+
+    final waveform = _generateWaveform(_rawAmplitudes, targetBars: 24);
 
     return VoiceRecordResult(
       bytes: bytes,
@@ -189,10 +211,18 @@ class VoiceRecorderService {
     _rawAmplitudes.clear();
   }
 
-  /// Toplanan desibel örneklerini 0..100 arasında 24 adet görsel çubuğa normalize eder.
   List<int> _generateWaveform(List<double> samples, {int targetBars = 24}) {
     if (samples.isEmpty) {
-      return List.filled(targetBars, 30);
+      return List<int>.filled(targetBars, 12);
+    }
+
+    if (samples.length <= targetBars) {
+      return samples
+          .map((v) => (v * 100).round().clamp(6, 100))
+          .toList()
+        ..addAll(List<int>.filled(
+            targetBars - samples.length,
+            (samples.last * 100).round().clamp(6, 100)));
     }
 
     final result = <int>[];
@@ -202,7 +232,7 @@ class VoiceRecorderService {
       final start = (i * chunkSize).floor();
       final end = math.min(((i + 1) * chunkSize).ceil(), samples.length);
       if (start >= end) {
-        result.add(25);
+        result.add(12);
         continue;
       }
 
@@ -211,9 +241,8 @@ class VoiceRecorderService {
         if (samples[j] > maxAmp) maxAmp = samples[j];
       }
 
-      // 15 - 95 arasında tatlı bir yükseklik değeri
-      final val = (maxAmp * 85 + 15).clamp(15.0, 98.0).toInt();
-      result.add(val);
+      final scaled = (maxAmp * 100).round().clamp(6, 100);
+      result.add(scaled);
     }
 
     return result;
@@ -222,5 +251,6 @@ class VoiceRecorderService {
   void dispose() {
     _cleanup();
     _recorder.dispose();
+    state.dispose();
   }
 }

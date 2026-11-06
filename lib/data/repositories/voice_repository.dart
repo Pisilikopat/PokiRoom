@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 // lib/data/repositories/voice_repository.dart
 import 'dart:convert';
 import 'dart:typed_data';
@@ -23,7 +24,9 @@ class VoiceRepository {
     required List<int> waveform,
   }) async {
     final id = generateUuidV4();
-    final path = '$roomId/$id.m4a';
+    final ext = kIsWeb ? 'webm' : 'm4a';
+    final mime = kIsWeb ? 'audio/webm' : 'audio/m4a';
+    final path = '$roomId/$id.$ext';
     final base64Audio = base64Encode(bytes);
 
     String? storageUrl;
@@ -32,21 +35,19 @@ class VoiceRepository {
       await _db.storage.from(_bucket).uploadBinary(
             path,
             bytes,
-            fileOptions: const FileOptions(
-              contentType: 'audio/m4a',
+            fileOptions: FileOptions(
+              contentType: mime,
               upsert: true,
             ),
           );
       storageUrl = _db.storage.from(_bucket).getPublicUrl(path);
     } catch (_) {
-      // Storage bucket henüz oluşturulmamışsa veya izin yoksa
-      // base64 data URI kullanarak mesajın kaybolmamasını garanti eder.
       storageUrl = null;
     }
 
     final finalUrl = (storageUrl != null && storageUrl.isNotEmpty)
         ? storageUrl
-        : 'data:audio/m4a;base64,$base64Audio';
+        : 'data:$mime;base64,$base64Audio';
 
     return PokiVoiceData(
       url: finalUrl,

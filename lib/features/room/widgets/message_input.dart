@@ -78,11 +78,25 @@ class _MessageInputState extends State<MessageInput> {
 
   Future<void> _startVoiceRecord() async {
     HapticFeedback.mediumImpact();
+    final hasPerm = await _recorder.hasPermission();
+    if (!hasPerm) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mikrofon izni gerekli 🎙️🐾'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     final ok = await _recorder.startRecording();
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Mikrofon izni gerekli 🎙️🐾'),
+          content: Text('Ses kaydı başlatılamadı 🎙️🐾'),
           duration: Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),
@@ -166,7 +180,7 @@ class _MessageInputState extends State<MessageInput> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          reply.snippet,
+                          reply.cleanSnippet,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: textTheme.bodySmall?.copyWith(

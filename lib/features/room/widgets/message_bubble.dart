@@ -539,7 +539,7 @@ class _QuotedReplyBox extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            reply.snippet,
+            reply.cleanSnippet,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: textTheme.bodySmall?.copyWith(

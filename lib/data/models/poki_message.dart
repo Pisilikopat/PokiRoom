@@ -16,6 +16,13 @@ class PokiReplyInfo {
   final String senderNickname;
   final String snippet;
 
+  String get cleanSnippet {
+    if (snippet.startsWith('«poki_bite:')) {
+      return '🦷 Tatlış bir ısırık';
+    }
+    return snippet;
+  }
+
   Map<String, dynamic> toMap() => {
         'id': messageId,
         'name': senderNickname,
@@ -57,6 +64,24 @@ class PokiMessage {
   bool get isBite => PokiBiteData.tryParse(cleanContent) != null;
 
   PokiBiteData? get biteData => PokiBiteData.tryParse(cleanContent);
+
+  String get displaySnippet {
+    if (isBite) {
+      return '🦷 Tatlış bir ısırık';
+    }
+    if (isVoice) return '🎙️ Sesli mesaj';
+    if (type == 'sticker') return '🐾 Çıkartma';
+    if (type == 'foggy') return '🌫️ Buğulu mesaj';
+    if (type == 'doodle') return '🎨 Karalama';
+    if (type == 'time_capsule') return '⏳ Zaman kapsülü';
+
+    var text = cleanContent;
+    if (text.startsWith('«poki_bite:')) {
+      return '🦷 Tatlış bir ısırık';
+    }
+    if (text.length > 50) text = '${text.substring(0, 47)}...';
+    return text;
+  }
 
   PokiVoiceData? get voiceData {
     if (!isVoice) return null;
