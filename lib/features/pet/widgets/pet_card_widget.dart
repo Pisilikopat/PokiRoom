@@ -202,25 +202,29 @@ class PetCardWidget extends StatelessWidget {
               // ───────────── SAHNE (KEDİ + MİNDER + EFEKTLER) ─────────────
               SizedBox(
                 height: 190,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    TuxedoCatWidget(
-                      action: s?.currentAction ?? PetActionKind.idle,
-                      isSleeping: isSleeping,
-                      isGrooming: controller.isGrooming,
-                      isMeowing: controller.isMeowing,
-                    ),
-                    Positioned.fill(
-                      child: EffectsLayer(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: isBusy || isSleeping ? null : controller.pet,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      TuxedoCatWidget(
+                        action: s?.currentAction ?? PetActionKind.idle,
                         isSleeping: isSleeping,
-                        sleepNote: s?.sleepNote,
-                        speechBubble: controller.speechBubble,
-                        heartBurstCount: controller.heartBurstCount,
-                        sparkleCount: controller.sparkleCount,
+                        isGrooming: controller.isGrooming,
+                        isMeowing: controller.isMeowing,
                       ),
-                    ),
-                  ],
+                      Positioned.fill(
+                        child: EffectsLayer(
+                          isSleeping: isSleeping,
+                          sleepNote: s?.sleepNote,
+                          speechBubble: controller.speechBubble,
+                          heartBurstCount: controller.heartBurstCount,
+                          sparkleCount: controller.sparkleCount,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 

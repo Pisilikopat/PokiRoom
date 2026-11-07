@@ -10,6 +10,7 @@ import '../models/pet_event.dart';
 import '../models/pet_state.dart';
 import 'pet_math.dart';
 import 'pet_sync.dart';
+import 'pet_vibrator.dart';
 
 class PetController extends ChangeNotifier {
   PetController({
@@ -258,12 +259,15 @@ class PetController extends ChangeNotifier {
 
   void _onRemoteEffect(String effect) {
     if (effect == 'hearts') {
+      PetVibrator.pet();
       _triggerHearts();
     } else if (effect == 'food') {
+      PetVibrator.feed();
       _triggerSparkles();
     } else if (effect == 'meow') {
       _showBubble('Miyav~ 🐾');
     } else if (effect == 'wake') {
+      PetVibrator.wake();
       _showBubble('Miyav~ ☀️');
     }
   }
@@ -275,7 +279,7 @@ class PetController extends ChangeNotifier {
     if (s == null || s.isSleeping || s.currentAction != PetActionKind.idle) return;
 
     try {
-      HapticFeedback.lightImpact();
+      PetVibrator.feed();
       _triggerSparkles();
       _sync?.sendEffect('food');
 
@@ -311,7 +315,7 @@ class PetController extends ChangeNotifier {
     if (s == null || s.isSleeping || s.currentAction != PetActionKind.idle) return;
 
     try {
-      HapticFeedback.mediumImpact();
+      PetVibrator.pet();
       _triggerHearts();
       _sync?.sendEffect('hearts');
 
@@ -474,7 +478,7 @@ class PetController extends ChangeNotifier {
     if (s == null || !s.isSleeping) return;
 
     try {
-      HapticFeedback.mediumImpact();
+      PetVibrator.wake();
       _showBubble('Miyav~ ☀️');
       _sync?.sendEffect('wake');
 

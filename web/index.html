@@ -118,6 +118,21 @@
 
       setInterval(playAllWebRTCAudio, 1000);
 
+      
+      window.pokiVibrate = function(patternCsv) {
+        try {
+          if (window.navigator && typeof window.navigator.vibrate === 'function') {
+            if (typeof patternCsv === 'string') {
+              var arr = patternCsv.split(',').map(function(n) { return parseInt(n.trim(), 10); });
+              window.navigator.vibrate(arr);
+            } else if (typeof patternCsv === 'number') {
+              window.navigator.vibrate(patternCsv);
+            } else if (Array.isArray(patternCsv)) {
+              window.navigator.vibrate(patternCsv);
+            }
+          }
+        } catch (e) {}
+      };
       window.pokiDownloadBytes = function(base64Data, filename) {
         var byteCharacters = atob(base64Data);
         var byteNumbers = new Array(byteCharacters.length);
