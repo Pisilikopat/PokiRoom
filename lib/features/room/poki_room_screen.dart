@@ -682,7 +682,11 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
       } else {
         Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) => GamesHubScreen(roomId: widget.roomId),
+            builder: (_) => GamesHubScreen(
+            roomId: widget.roomId,
+            myNickname: _me?.nickname,
+            partnerNickname: _partner?.nickname,
+          ),
           ),
         );
       }
@@ -721,7 +725,11 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
   void _openArcade() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => GamesHubScreen(roomId: widget.roomId),
+        builder: (_) => GamesHubScreen(
+            roomId: widget.roomId,
+            myNickname: _me?.nickname,
+            partnerNickname: _partner?.nickname,
+          ),
       ),
     );
   }
@@ -1135,6 +1143,7 @@ class _PokiRoomScreenState extends State<PokiRoomScreen>
                     MaterialPageRoute(
                       builder: (_) => PetScreen(
                         roomId: widget.roomId,
+                        myNickname: _me?.nickname ?? 'Sen',
                         partnerNickname: _partner?.nickname ?? 'Partnerin',
                       ),
                     ),

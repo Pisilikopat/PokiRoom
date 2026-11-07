@@ -5,13 +5,15 @@ class PetStrings {
 
   static const title = 'Ortak Kedi · Mırnav';
   static const defaultPetName = 'Mırnav';
-  static const subtitle = 'Arda & Yuna ortak sanal kedi odası';
+  static String subtitle(String user1, String user2) => '$user1 & $user2 ortak kedi odası';
+  static const defaultSubtitle = 'İkinizin ortak sanal kedi odası';
 
   // Butonlar
   static const feedButton = 'Besle';
   static const petButton = 'Sev';
   static const sleepButton = 'Uyut';
   static const wakeButton = 'Uyandır';
+  static const historyButton = 'İşlem Geçmişi';
 
   // Stat başlıkları
   static const hunger = 'Tokluk';
@@ -32,7 +34,7 @@ class PetStrings {
 
   // Başucu Notu
   static const sleepDialogTitle = 'Kediyi Uyut 🌙';
-  static const sleepDialogHint = 'İyi geceler tavşancığım, kediyi uyuttum...';
+  static const sleepDialogHint = 'İyi geceler canım, kediyi uyuttum...';
   static const sleepDialogConfirm = 'Mışıl Mışıl Uyut 💤';
   static const cancel = 'Vazgeç';
   static const bedsideNotePrefix = '🌙 Başucu Notu:';

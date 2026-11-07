@@ -17,20 +17,63 @@ import '../pet/pet_screen.dart';
 
 /// Poki Oyun Odası (Poki Arcade): Aktif oyunları görme ve yeni lobi oluşturma merkezi.
 class GamesHubScreen extends StatefulWidget {
-  const GamesHubScreen({super.key, required this.roomId});
+  const GamesHubScreen({
+    super.key,
+    required this.roomId,
+    this.myNickname,
+    this.partnerNickname,
+  });
 
   final String roomId;
+  final String? myNickname;
+  final String? partnerNickname;
 
   @override
   State<GamesHubScreen> createState() => _GamesHubScreenState();
 }
 
 class _GamesHubScreenState extends State<GamesHubScreen> {
+  String? _myNick;
+  String? _partnerNick;
+
   @override
   void initState() {
     super.initState();
+    _myNick = widget.myNickname;
+    _partnerNick = widget.partnerNickname;
     GameLobbyService.instance.init(widget.roomId);
     RoomPresence.current?.setActivity(PokiActivity.gamesHub);
+    if (_myNick == null || _partnerNick == null) {
+      _loadNicknames();
+    }
+  }
+
+  Future<void> _loadNicknames() async {
+    try {
+      final client = Supabase.instance.client;
+      final myId = client.auth.currentUser?.id;
+      final roomRes = await client.from('rooms').select('user1_id, user2_id').eq('id', widget.roomId).maybeSingle();
+      if (roomRes != null) {
+        final u1 = roomRes['user1_id'] as String?;
+        final u2 = roomRes['user2_id'] as String?;
+        final ids = [u1, u2].whereType<String>().toList();
+        if (ids.isNotEmpty) {
+          final usersRes = await client.from('poki_users').select('id, nickname').inFilter('id', ids);
+          for (final u in usersRes) {
+            final uid = u['id'] as String;
+            final nick = (u['nickname'] as String?)?.trim();
+            if (nick != null && nick.isNotEmpty) {
+              if (uid == myId) {
+                _myNick = nick;
+              } else {
+                _partnerNick = nick;
+              }
+            }
+          }
+          if (mounted) setState(() {});
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -257,14 +300,19 @@ class _GamesHubScreenState extends State<GamesHubScreen> {
                   emoji: '🐱🐾',
                   title: 'Ortak Kedi · Mırnav',
                   badge: 'Canlı Birlikte',
-                  subtitle:
-                      'Arda & Yuna ortak kedi odası. Birlikte besleyin, sevin, başucuna iyi geceler notu bırakıp uyutun!',
+                  subtitle: (_myNick != null && _partnerNick != null)
+                      ? '$_myNick & $_partnerNick ortak kedi odası. Birlikte besleyin, sevin, başucuna iyi geceler notu bırakıp uyutun!'
+                      : 'İkinizin ortak kedi odası. Birlikte besleyin, sevin, başucuna iyi geceler notu bırakıp uyutun!',
                   buttonLabel: 'Kedi Odasına Git 🐾',
                   color: const Color(0xFF93C5FD).withOpacity(0.3),
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => PetScreen(roomId: widget.roomId),
+                        builder: (_) => PetScreen(
+                          roomId: widget.roomId,
+                          myNickname: _myNick ?? 'Sen',
+                          partnerNickname: _partnerNick ?? 'Partnerin',
+                        ),
                       ),
                     );
                   },

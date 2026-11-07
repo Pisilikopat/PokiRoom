@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/pet_event.dart';
 import '../models/pet_state.dart';
 import 'pet_math.dart';
 import 'pet_sync.dart';
@@ -14,6 +15,7 @@ class PetController extends ChangeNotifier {
   PetController({
     required this.roomId,
     required this.myId,
+    this.myNickname = 'Sen',
     this.partnerNickname = 'Partnerin',
   }) {
     _init();
@@ -21,7 +23,9 @@ class PetController extends ChangeNotifier {
 
   final String roomId;
   final String myId;
-  final String partnerNickname;
+  String myNickname;
+  String partnerNickname;
+  final Map<String, String> _userNicknames = {};
 
   PetState? _state;
   PetState? get state => _state;
@@ -55,6 +59,11 @@ class PetController extends ChangeNotifier {
   double _actionProgress = 0.0;
   double get actionProgress => _actionProgress;
 
+  List<PetEvent> _history = [];
+  List<PetEvent> get history => _history;
+  bool _historyLoading = false;
+  bool get historyLoading => _historyLoading;
+
   PetSync? _sync;
   Timer? _ticker;
   Timer? _groomTimer;
@@ -74,9 +83,47 @@ class PetController extends ChangeNotifier {
     );
 
     _fetchPet();
+    _fetchUserNicknames();
     _startTicker();
     _scheduleAutonomousGroom();
     _scheduleAutonomousMeow();
+  }
+
+  Future<void> _fetchUserNicknames() async {
+    try {
+      final client = Supabase.instance.client;
+      final roomRes = await client
+          .from('rooms')
+          .select('user1_id, user2_id')
+          .eq('id', roomId)
+          .maybeSingle();
+
+      if (roomRes != null) {
+        final u1 = roomRes['user1_id'] as String?;
+        final u2 = roomRes['user2_id'] as String?;
+        final ids = [u1, u2].whereType<String>().toList();
+        if (ids.isNotEmpty) {
+          final usersRes = await client
+              .from('poki_users')
+              .select('id, nickname')
+              .inFilter('id', ids);
+
+          for (final u in usersRes) {
+            final uid = u['id'] as String;
+            final nick = (u['nickname'] as String?)?.trim();
+            if (nick != null && nick.isNotEmpty) {
+              _userNicknames[uid] = nick;
+              if (uid == myId) {
+                myNickname = nick;
+              } else {
+                partnerNickname = nick;
+              }
+            }
+          }
+          notifyListeners();
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchPet() async {
@@ -125,8 +172,35 @@ class PetController extends ChangeNotifier {
     }
   }
 
+  Future<List<PetEvent>> fetchHistory() async {
+    try {
+      _historyLoading = true;
+      notifyListeners();
+
+      final client = Supabase.instance.client;
+      final res = await client
+          .from('pet_events')
+          .select()
+          .eq('room_id', roomId)
+          .order('created_at', ascending: false)
+          .limit(50);
+
+      if (res is List) {
+        _history = res
+            .map((e) => PetEvent.fromMap(e as Map<String, dynamic>))
+            .toList();
+      }
+      return _history;
+    } catch (e) {
+      return _history;
+    } finally {
+      _historyLoading = false;
+      notifyListeners();
+    }
+  }
+
   void _startTicker() {
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+    _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) {
       if (_disposed) return;
       _updateStats();
       _updateActionProgress();
@@ -136,9 +210,13 @@ class PetController extends ChangeNotifier {
   void _updateStats() {
     final s = _state;
     if (s == null) return;
-    final now = DateTime.now();
-    _stats = PetMath.computeStats(s, now);
-    notifyListeners();
+    final current = PetMath.computeDecay(s);
+    if (current.hunger != _stats.hunger ||
+        current.affection != _stats.affection ||
+        current.energy != _stats.energy) {
+      _stats = current;
+      notifyListeners();
+    }
   }
 
   void _updateActionProgress() {
@@ -178,7 +256,7 @@ class PetController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _onRemoteEffect(String effect, String from) {
+  void _onRemoteEffect(String effect) {
     if (effect == 'hearts') {
       _triggerHearts();
     } else if (effect == 'food') {
@@ -225,8 +303,7 @@ class PetController extends ChangeNotifier {
         'p_room_id': roomId,
         'p_kind': 'eating',
       });
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   Future<void> pet() async {
@@ -262,8 +339,7 @@ class PetController extends ChangeNotifier {
         'p_room_id': roomId,
         'p_kind': 'petting',
       });
-    } catch (e) {
-    }
+    } catch (_) {}
   }
 
   Future<void> _finishAction() async {
@@ -287,7 +363,6 @@ class PetController extends ChangeNotifier {
       targetAffection = (targetAffection + 20).clamp(0, 100);
     }
 
-    // Gözlerin anında açılması ve barın anında dolması için yerel durumu anında güncelle
     _state = s.copyWith(
       hunger: targetHunger,
       affection: targetAffection,
@@ -321,6 +396,14 @@ class PetController extends ChangeNotifier {
           'action_ends_at': null,
           'stats_updated_at': DateTime.now().toIso8601String(),
         }).eq('room_id', roomId);
+
+        try {
+          await client.from('pet_events').insert({
+            'room_id': roomId,
+            'actor_id': myId,
+            'type': action == PetActionKind.eating ? 'feed' : 'pet',
+          });
+        } catch (_) {}
       }
     } catch (_) {
     } finally {
@@ -352,10 +435,35 @@ class PetController extends ChangeNotifier {
       notifyListeners();
 
       final client = Supabase.instance.client;
-      await client.rpc('pet_sleep', params: {
-        'p_room_id': roomId,
-        'p_note': sanitized,
-      });
+
+      try {
+        await client.rpc('pet_sleep', params: {
+          'p_room_id': roomId,
+          'p_note': sanitized,
+        });
+      } catch (_) {}
+
+      // Doğrudan veritabanı update'i: 120 karaktere kadar olan notun
+      // eski RPC sürümlerinde bile kesilmeden eksiksiz kaydedilmesini garanti eder!
+      await client.from('room_pets').update({
+        'is_sleeping': true,
+        'sleep_note': sanitized,
+        'sleep_started_at': DateTime.now().toIso8601String(),
+        'current_action': 'idle',
+        'action_ends_at': null,
+        'last_action_by': myId,
+        'last_action_type': 'sleep',
+        'last_action_at': DateTime.now().toIso8601String(),
+      }).eq('room_id', roomId);
+
+      try {
+        await client.from('pet_events').insert({
+          'room_id': roomId,
+          'actor_id': myId,
+          'type': 'sleep',
+          'note': sanitized,
+        });
+      } catch (_) {}
     } catch (e) {
       _fetchPet();
     }
@@ -381,7 +489,26 @@ class PetController extends ChangeNotifier {
       notifyListeners();
 
       final client = Supabase.instance.client;
-      await client.rpc('pet_wake', params: {'p_room_id': roomId});
+      try {
+        await client.rpc('pet_wake', params: {'p_room_id': roomId});
+      } catch (_) {}
+
+      await client.from('room_pets').update({
+        'is_sleeping': false,
+        'sleep_note': null,
+        'sleep_started_at': null,
+        'last_action_by': myId,
+        'last_action_type': 'wake',
+        'last_action_at': DateTime.now().toIso8601String(),
+      }).eq('room_id', roomId);
+
+      try {
+        await client.from('pet_events').insert({
+          'room_id': roomId,
+          'actor_id': myId,
+          'type': 'wake',
+        });
+      } catch (_) {}
     } catch (e) {
       _fetchPet();
     }
@@ -429,16 +556,15 @@ class PetController extends ChangeNotifier {
   }
 
   void _scheduleAutonomousMeow() {
-    final delaySeconds = 20 + _random.nextInt(10); // ~25s (±5s)
+    final delaySeconds = 20 + _random.nextInt(10); // ~25s
     _meowTimer = Timer(Duration(seconds: delaySeconds), () {
       if (_disposed) return;
       final s = _state;
       if (s != null && !s.isSleeping && s.currentAction == PetActionKind.idle) {
         _isMeowing = true;
         _showBubble('Miyav~ 🐾');
-        _sync?.sendEffect('meow');
         notifyListeners();
-        Timer(const Duration(milliseconds: 1500), () {
+        Timer(const Duration(milliseconds: 2000), () {
           if (_disposed) return;
           _isMeowing = false;
           notifyListeners();
@@ -455,7 +581,9 @@ class PetController extends ChangeNotifier {
     }
 
     final isMe = s.lastActionBy == myId;
-    final actor = isMe ? 'Sen' : partnerNickname;
+    final actor = isMe
+        ? (myNickname.isNotEmpty && myNickname != 'Sen' ? '$myNickname (Sen)' : 'Sen')
+        : (_userNicknames[s.lastActionBy] ?? partnerNickname);
     final type = s.lastActionType;
     String actionName = 'ilgilendi';
     if (type == 'eating' || type == 'feed') actionName = 'onu besledi 🍖';

@@ -28,7 +28,6 @@ class EffectsLayer extends StatefulWidget {
 class _EffectsLayerState extends State<EffectsLayer>
     with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
-  bool _isNoteExpanded = false;
 
   @override
   void initState() {
@@ -49,27 +48,48 @@ class _EffectsLayerState extends State<EffectsLayer>
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: Color(0xFF6366F1), width: 1.5),
+        ),
         title: const Row(
           children: [
-            Text('🌙', style: TextStyle(fontSize: 22)),
-            SizedBox(width: 8),
-            Text('Başucu Notu', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            Text('🌙', style: TextStyle(fontSize: 24)),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Başucu Notu',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFF8FAFC),
+                ),
+              ),
+            ),
           ],
         ),
-        content: Text(
-          note,
-          style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic, height: 1.45),
+        content: Container(
+          constraints: const BoxConstraints(maxHeight: 220),
+          child: SingleChildScrollView(
+            child: SelectableText(
+              note,
+              style: const TextStyle(
+                fontSize: 15,
+                fontStyle: FontStyle.italic,
+                height: 1.5,
+                color: Color(0xFFE2E8F0),
+              ),
+            ),
+          ),
         ),
         actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFC7D2FE),
             ),
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Kapat'),
+            child: const Text('Kapat', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -142,83 +162,71 @@ class _EffectsLayerState extends State<EffectsLayer>
 
                       // Zzz... yükselen uyku harfleri
                       Positioned(
-                        bottom: 80,
-                        left: 90 + math.sin(t * 2 * math.pi) * 8,
+                        bottom: 40 + (t * 40),
+                        left: 140 + (math.sin(t * math.pi) * 12),
                         child: Opacity(
                           opacity: (1.0 - t).clamp(0.0, 1.0),
-                          child: Transform.scale(
-                            scale: 0.8 + t * 0.6,
-                            child: const Text(
-                              'Zzz...',
-                              style: TextStyle(
-                                color: Color(0xFFE2E8F0),
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 2,
-                              ),
+                          child: Text(
+                            t < 0.33 ? 'z' : (t < 0.66 ? 'Zz' : 'Zzz...'),
+                            style: TextStyle(
+                              color: const Color(0xFFC7D2FE),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14 + (t * 12),
+                              shadows: const [
+                                Shadow(color: Color(0xFF6366F1), blurRadius: 8),
+                              ],
                             ),
                           ),
                         ),
                       ),
 
-                      // Başucu Notu (Dokunulabilir ve açılabilir)
+                      // Başucu Notu (Uyurken alt kısımda mini dokunulabilir hap)
                       if (widget.sleepNote != null && widget.sleepNote!.isNotEmpty)
                         Positioned(
-                          bottom: 12,
+                          bottom: 10,
                           left: 12,
                           right: 12,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                setState(() => _isNoteExpanded = !_isNoteExpanded);
-                                if (widget.sleepNote!.length > 45) {
-                                  _showFullNoteDialog(context, widget.sleepNote!);
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(16),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 250),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xEE1E293B),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: const Color(0xFF94A3B8).withOpacity(0.4),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _showFullNoteDialog(context, widget.sleepNote!),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xE60F172A),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color(0xFF6366F1).withOpacity(0.6),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 6,
                                   ),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Colors.black38,
-                                      blurRadius: 10,
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('🌙', style: TextStyle(fontSize: 16)),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        widget.sleepNote!,
-                                        style: const TextStyle(
-                                          color: Color(0xFFF1F5F9),
-                                          fontSize: 12.5,
-                                          fontStyle: FontStyle.italic,
-                                          height: 1.35,
-                                        ),
-                                        maxLines: _isNoteExpanded ? 6 : 2,
-                                        overflow: _isNoteExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  const Text('🌙', style: TextStyle(fontSize: 14)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      widget.sleepNote!,
+                                      style: const TextStyle(
+                                        color: Color(0xFFF1F5F9),
+                                        fontSize: 12,
+                                        fontStyle: FontStyle.italic,
                                       ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(width: 6),
-                                    const Icon(
-                                      Icons.touch_app_rounded,
-                                      size: 15,
-                                      color: Color(0xFF94A3B8),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.touch_app_rounded,
+                                    size: 14,
+                                    color: Color(0xFFA5B4FC),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

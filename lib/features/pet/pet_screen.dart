@@ -7,15 +7,18 @@ import '../../core/theme/poki_theme.dart';
 import 'logic/pet_controller.dart';
 import 'pet_strings.dart';
 import 'widgets/pet_card_widget.dart';
+import 'widgets/pet_history_sheet.dart';
 
 class PetScreen extends StatefulWidget {
   const PetScreen({
     super.key,
     required this.roomId,
+    this.myNickname = 'Sen',
     this.partnerNickname = 'Partnerin',
   });
 
   final String roomId;
+  final String myNickname;
   final String partnerNickname;
 
   @override
@@ -32,6 +35,7 @@ class _PetScreenState extends State<PetScreen> {
     _controller = PetController(
       roomId: widget.roomId,
       myId: myId,
+      myNickname: widget.myNickname,
       partnerNickname: widget.partnerNickname,
     );
   }
@@ -64,13 +68,73 @@ class _PetScreenState extends State<PetScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'İşlem Geçmişi',
+            icon: const Icon(Icons.history_rounded, size: 24),
+            onPressed: () => PetHistorySheet.show(context, _controller),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             PetCardWidget(controller: _controller),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
+
+            // İşlem Geçmişi Hızlı Kartı
+            InkWell(
+              onTap: () => PetHistorySheet.show(context, _controller),
+              borderRadius: PokiRadius.all,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: PokiColors.surfaceOf(context),
+                  borderRadius: PokiRadius.all,
+                  boxShadow: PokiShadows.softOf(context),
+                  border: Border.all(
+                    color: PokiColors.borderOf(context).withOpacity(0.5),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Text('📜', style: TextStyle(fontSize: 20)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'İşlem Geçmişi',
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                              color: PokiColors.textOf(context),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Ne zaman ne yaptınız? Tüm besleme, sevgi ve notlar',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: PokiColors.textOf(context).withOpacity(0.65),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 15,
+                      color: PokiColors.textOf(context).withOpacity(0.4),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // Bilgi ve İpucu Kartı
             Container(
@@ -83,13 +147,16 @@ class _PetScreenState extends State<PetScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Text('💡', style: TextStyle(fontSize: 18)),
-                      SizedBox(width: 8),
-                      Text(
-                        'Ortak Kedi Bakım Rehberi',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      const Text('💡', style: TextStyle(fontSize: 18)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${_controller.myNickname} & ${_controller.partnerNickname} Bakım Rehberi',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),

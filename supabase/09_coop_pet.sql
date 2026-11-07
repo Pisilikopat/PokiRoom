@@ -65,6 +65,17 @@ create policy "Oda üyeleri pet olaylarını görebilir"
     )
   );
 
+drop policy if exists "Oda üyeleri pet olayları ekleyebilir" on public.pet_events;
+create policy "Oda üyeleri pet olayları ekleyebilir"
+  on public.pet_events for insert
+  with check (
+    exists (
+      select 1 from public.rooms r
+      where r.id = pet_events.room_id
+        and (r.user1_id = auth.uid() or r.user2_id = auth.uid())
+    )
+  );
+
 -- Güvenlik gereği doğrudan UPDATE engellenir, tüm değişiklikler atomik RPC ile yapılır.
 -- Ancak gerektiğinde oda üyelerinin insert/update yapabilmesi için:
 drop policy if exists "Oda üyeleri evcil hayvanı güncelleyebilir" on public.room_pets;
