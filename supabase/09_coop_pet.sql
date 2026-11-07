@@ -196,7 +196,7 @@ begin
     return v_pet;
   end if;
 
-  if v_pet.action_ends_at is null or v_pet.action_ends_at <= now() then
+  if v_pet.action_ends_at is null or v_pet.action_ends_at <= (now() + interval '1 second') then
     if v_pet.current_action = 'eating' then
       v_pet.hunger := least(100, v_pet.hunger + 25);
       v_event_type := 'feed';
@@ -243,7 +243,7 @@ begin
 
   -- Decay uygula
   v_pet := public.pet_compute_decay(v_pet, now());
-  v_sanitized_note := substring(trim(p_note) from 1 for 80);
+  v_sanitized_note := substring(trim(p_note) from 1 for 120);
 
   update public.room_pets
   set is_sleeping = true,

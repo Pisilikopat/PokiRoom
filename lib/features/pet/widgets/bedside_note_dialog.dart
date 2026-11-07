@@ -41,7 +41,7 @@ class _BedsideNoteDialogState extends State<BedsideNoteDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _controller,
-            maxLength: 80,
+            maxLength: 120,
             decoration: InputDecoration(
               hintText: PetStrings.sleepDialogHint,
               hintStyle: const TextStyle(fontSize: 12.5),
@@ -52,7 +52,7 @@ class _BedsideNoteDialogState extends State<BedsideNoteDialog> {
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
-            maxLines: 2,
+            maxLines: 3,
           ),
         ],
       ),

@@ -60,6 +60,7 @@ class PetController extends ChangeNotifier {
   Timer? _groomTimer;
   Timer? _meowTimer;
   Timer? _speechBubbleTimer;
+  Timer? _actionSafetyTimer;
   bool _disposed = false;
   bool _isActionFinishing = false;
   final math.Random _random = math.Random();
@@ -142,7 +143,7 @@ class PetController extends ChangeNotifier {
 
   void _updateActionProgress() {
     final s = _state;
-    if (s == null || !s.isActionActive) {
+    if (s == null || s.currentAction == PetActionKind.idle) {
       if (_actionProgress != 0.0) {
         _actionProgress = 0.0;
         notifyListeners();
@@ -150,12 +151,17 @@ class PetController extends ChangeNotifier {
       return;
     }
 
-    final end = s.actionEndsAt!;
+    final end = s.actionEndsAt;
+    if (end == null) {
+      _finishAction();
+      return;
+    }
+
     final now = DateTime.now();
     final remainingMs = end.difference(now).inMilliseconds;
 
     if (remainingMs <= 0) {
-      _actionProgress = 1.0;
+      _actionProgress = 0.0;
       notifyListeners();
       _finishAction();
     } else {
@@ -188,22 +194,31 @@ class PetController extends ChangeNotifier {
 
   Future<void> feed() async {
     final s = _state;
-    if (s == null || s.isSleeping || s.isActionActive) return;
+    if (s == null || s.isSleeping || s.currentAction != PetActionKind.idle) return;
 
     try {
       HapticFeedback.lightImpact();
       _triggerSparkles();
       _sync?.sendEffect('food');
 
-      // Optimistik aksiyon
+      final endsAt = DateTime.now().add(const Duration(seconds: 3));
       _state = s.copyWith(
         currentAction: PetActionKind.eating,
-        actionEndsAt: DateTime.now().add(const Duration(seconds: 3)),
+        actionEndsAt: endsAt,
         lastActionBy: myId,
         lastActionType: 'eating',
         lastActionAt: DateTime.now(),
       );
+      _actionProgress = 0.01;
       notifyListeners();
+
+      _actionSafetyTimer?.cancel();
+      _actionSafetyTimer = Timer(const Duration(milliseconds: 3200), () {
+        if (_disposed) return;
+        if (_state?.currentAction == PetActionKind.eating) {
+          _finishAction();
+        }
+      });
 
       final client = Supabase.instance.client;
       await client.rpc('pet_start_action', params: {
@@ -211,27 +226,36 @@ class PetController extends ChangeNotifier {
         'p_kind': 'eating',
       });
     } catch (e) {
-      _fetchPet(); // Hata durumunda rollback
     }
   }
 
   Future<void> pet() async {
     final s = _state;
-    if (s == null || s.isSleeping || s.isActionActive) return;
+    if (s == null || s.isSleeping || s.currentAction != PetActionKind.idle) return;
 
     try {
       HapticFeedback.mediumImpact();
       _triggerHearts();
       _sync?.sendEffect('hearts');
 
+      final endsAt = DateTime.now().add(const Duration(seconds: 3));
       _state = s.copyWith(
         currentAction: PetActionKind.petting,
-        actionEndsAt: DateTime.now().add(const Duration(seconds: 3)),
+        actionEndsAt: endsAt,
         lastActionBy: myId,
         lastActionType: 'petting',
         lastActionAt: DateTime.now(),
       );
+      _actionProgress = 0.01;
       notifyListeners();
+
+      _actionSafetyTimer?.cancel();
+      _actionSafetyTimer = Timer(const Duration(milliseconds: 3200), () {
+        if (_disposed) return;
+        if (_state?.currentAction == PetActionKind.petting) {
+          _finishAction();
+        }
+      });
 
       final client = Supabase.instance.client;
       await client.rpc('pet_start_action', params: {
@@ -239,40 +263,68 @@ class PetController extends ChangeNotifier {
         'p_kind': 'petting',
       });
     } catch (e) {
-      _fetchPet();
     }
   }
 
   Future<void> _finishAction() async {
     if (_isActionFinishing) return;
     _isActionFinishing = true;
+    _actionSafetyTimer?.cancel();
+
+    final s = _state;
+    if (s == null || s.currentAction == PetActionKind.idle) {
+      _isActionFinishing = false;
+      return;
+    }
+
+    final action = s.currentAction;
+    int targetHunger = s.hunger;
+    int targetAffection = s.affection;
+
+    if (action == PetActionKind.eating) {
+      targetHunger = (targetHunger + 25).clamp(0, 100);
+    } else if (action == PetActionKind.petting) {
+      targetAffection = (targetAffection + 20).clamp(0, 100);
+    }
+
+    // Gözlerin anında açılması ve barın anında dolması için yerel durumu anında güncelle
+    _state = s.copyWith(
+      hunger: targetHunger,
+      affection: targetAffection,
+      currentAction: PetActionKind.idle,
+      actionEndsAt: null,
+      statsUpdatedAt: DateTime.now(),
+    );
+    _actionProgress = 0.0;
+    _updateStats();
+    notifyListeners();
 
     try {
       final client = Supabase.instance.client;
-      final res = await client.rpc('pet_finish_action', params: {'p_room_id': roomId});
-      if (res != null && res is Map) {
-        _state = PetState.fromMap(res.cast<String, dynamic>());
+      bool rpcSuccess = false;
+      try {
+        final res = await client.rpc('pet_finish_action', params: {'p_room_id': roomId});
+        if (res != null && res is Map) {
+          final serverState = PetState.fromMap(res.cast<String, dynamic>());
+          if (serverState.currentAction == PetActionKind.idle) {
+            _state = serverState;
+            rpcSuccess = true;
+          }
+        }
+      } catch (_) {}
+
+      if (!rpcSuccess) {
+        await client.from('room_pets').update({
+          'hunger': targetHunger,
+          'affection': targetAffection,
+          'current_action': 'idle',
+          'action_ends_at': null,
+          'stats_updated_at': DateTime.now().toIso8601String(),
+        }).eq('room_id', roomId);
       }
     } catch (_) {
-      // Offline fallback: yerel tamamla
-      final s = _state;
-      if (s != null) {
-        int newHunger = s.hunger;
-        int newAffection = s.affection;
-        if (s.currentAction == PetActionKind.eating) newHunger = (newHunger + 25).clamp(0, 100);
-        if (s.currentAction == PetActionKind.petting) newAffection = (newAffection + 20).clamp(0, 100);
-
-        _state = s.copyWith(
-          hunger: newHunger,
-          affection: newAffection,
-          currentAction: PetActionKind.idle,
-          actionEndsAt: null,
-          statsUpdatedAt: DateTime.now(),
-        );
-      }
     } finally {
       _isActionFinishing = false;
-      _actionProgress = 0.0;
       _updateStats();
       notifyListeners();
     }
@@ -284,7 +336,7 @@ class PetController extends ChangeNotifier {
 
     try {
       final sanitized = note != null && note.trim().isNotEmpty
-          ? note.trim().substring(0, math.min(80, note.trim().length))
+          ? note.trim().substring(0, math.min(120, note.trim().length))
           : null;
 
       _state = s.copyWith(
@@ -427,6 +479,7 @@ class PetController extends ChangeNotifier {
     _groomTimer?.cancel();
     _meowTimer?.cancel();
     _speechBubbleTimer?.cancel();
+    _actionSafetyTimer?.cancel();
     _sync?.dispose();
     super.dispose();
   }
