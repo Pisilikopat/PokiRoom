@@ -12,7 +12,7 @@ import 'pet_history_sheet.dart';
 import 'pet_stats_bar.dart';
 import 'tuxedo_cat_widget.dart';
 
-class PetCardWidget extends StatelessWidget {
+class PetCardWidget extends StatefulWidget {
   const PetCardWidget({
     super.key,
     required this.controller,
@@ -22,7 +22,21 @@ class PetCardWidget extends StatelessWidget {
   final PetController controller;
   final VoidCallback? onTapHeader;
 
-  void _showFullNoteDialog(BuildContext context, String note, PetController controller) {
+  @override
+  State<PetCardWidget> createState() => _PetCardWidgetState();
+}
+
+class _PetCardWidgetState extends State<PetCardWidget> {
+  final ValueNotifier<Offset> _headAnchor =
+      ValueNotifier<Offset>(const Offset(110, 73));
+
+  @override
+  void dispose() {
+    _headAnchor.dispose();
+    super.dispose();
+  }
+
+  void _showFullNoteDialog(BuildContext context, String note) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -76,6 +90,8 @@ class PetCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
@@ -111,7 +127,7 @@ class PetCardWidget extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     InkWell(
-                      onTap: onTapHeader,
+                      onTap: widget.onTapHeader,
                       borderRadius: BorderRadius.circular(12),
                       child: Row(
                         children: [
@@ -141,7 +157,9 @@ class PetCardWidget extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: PokiColors.surfaceOf(context),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: PokiColors.textOf(context).withOpacity(0.15)),
+                              border: Border.all(
+                                color: PokiColors.textOf(context).withOpacity(0.15),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -202,29 +220,30 @@ class PetCardWidget extends StatelessWidget {
               // ───────────── SAHNE (KEDİ + MİNDER + EFEKTLER) ─────────────
               SizedBox(
                 height: 190,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: isBusy || isSleeping ? null : controller.pet,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      TuxedoCatWidget(
-                        action: s?.currentAction ?? PetActionKind.idle,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    TuxedoCatWidget(
+                      action: s?.currentAction ?? PetActionKind.idle,
+                      isSleeping: isSleeping,
+                      isGrooming: controller.isGrooming,
+                      isMeowing: controller.isMeowing,
+                      headAnchor: _headAnchor,
+                      onReaction: (txt) {
+                        controller.showCustomBubble(txt);
+                      },
+                    ),
+                    Positioned.fill(
+                      child: EffectsLayer(
                         isSleeping: isSleeping,
-                        isGrooming: controller.isGrooming,
-                        isMeowing: controller.isMeowing,
+                        sleepNote: s?.sleepNote,
+                        speechBubble: controller.speechBubble,
+                        heartBurstCount: controller.heartBurstCount,
+                        sparkleCount: controller.sparkleCount,
+                        headAnchor: _headAnchor,
                       ),
-                      Positioned.fill(
-                        child: EffectsLayer(
-                          isSleeping: isSleeping,
-                          sleepNote: s?.sleepNote,
-                          speechBubble: controller.speechBubble,
-                          heartBurstCount: controller.heartBurstCount,
-                          sparkleCount: controller.sparkleCount,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -233,7 +252,7 @@ class PetCardWidget extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                   child: InkWell(
-                    onTap: () => _showFullNoteDialog(context, s.sleepNote!, controller),
+                    onTap: () => _showFullNoteDialog(context, s.sleepNote!),
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       width: double.infinity,

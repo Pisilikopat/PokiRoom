@@ -530,6 +530,11 @@ class PetController extends ChangeNotifier {
     notifyListeners();
   }
 
+    void showCustomBubble(String text) {
+    _showBubble(text);
+    PetVibrator.pet();
+  }
+
   void _showBubble(String text) {
     _speechBubble = text;
     notifyListeners();
