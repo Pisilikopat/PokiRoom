@@ -229,10 +229,10 @@ class _PetHistorySheetState extends State<PetHistorySheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: PokiColors.cardOf(context),
+        color: PokiColors.surfaceOf(context),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: PokiColors.borderOf(context).withOpacity(0.6),
+          color: PokiColors.textOf(context).withOpacity(0.15),
         ),
       ),
       child: Column(

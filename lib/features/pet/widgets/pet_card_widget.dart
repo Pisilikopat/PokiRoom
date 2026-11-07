@@ -139,9 +139,9 @@ class PetCardWidget extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                             decoration: BoxDecoration(
-                              color: PokiColors.cardOf(context),
+                              color: PokiColors.surfaceOf(context),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: PokiColors.borderOf(context)),
+                              border: Border.all(color: PokiColors.textOf(context).withOpacity(0.15)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -309,7 +309,6 @@ class PetCardWidget extends StatelessWidget {
               // ───────────── STAT BARLARI ─────────────
               PetStatsBar(
                 stats: controller.stats,
-                isSleeping: isSleeping,
               ),
 
               // ───────────── AKSİYON BUTONLARI ─────────────

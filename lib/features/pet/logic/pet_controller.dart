@@ -79,7 +79,7 @@ class PetController extends ChangeNotifier {
       roomId: roomId,
       myId: myId,
       onRemoteUpdate: _onRemoteState,
-      onEffectReceived: _onRemoteEffect,
+      onEffectReceived: (effect, fromId) => _onRemoteEffect(effect),
     );
 
     _fetchPet();
@@ -210,7 +210,7 @@ class PetController extends ChangeNotifier {
   void _updateStats() {
     final s = _state;
     if (s == null) return;
-    final current = PetMath.computeDecay(s);
+    final current = PetMath.computeStats(s, DateTime.now());
     if (current.hunger != _stats.hunger ||
         current.affection != _stats.affection ||
         current.energy != _stats.energy) {

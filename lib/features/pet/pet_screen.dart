@@ -95,7 +95,7 @@ class _PetScreenState extends State<PetScreen> {
                   borderRadius: PokiRadius.all,
                   boxShadow: PokiShadows.softOf(context),
                   border: Border.all(
-                    color: PokiColors.borderOf(context).withOpacity(0.5),
+                    color: PokiColors.textOf(context).withOpacity(0.15),
                   ),
                 ),
                 child: Row(
